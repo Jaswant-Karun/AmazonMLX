@@ -5,7 +5,7 @@ Validation Sample Size   : 50,000 Source 1 entities (deterministic sample from 1
 Total Ground Truth Pairs : 173,260
 Entities with GT Matches : 47,163 (94.33%)
 Singleton Entities       : 2,837 (5.67%)
-Total Experiment Time    : 486.73s
+Total Experiment Time    : 486.39s
 ================================================================================
 
 --------------------------------------------------------------------------------
@@ -93,229 +93,229 @@ ERROR ANALYSIS: EXAMPLES OF MISSED GROUND-TRUTH MATCHES (Total Missed: 20,520)
 ================================================================================
 
 --- Missed Example #1 ---
-  S1 entity_id          : S1-218958222
-  S1 business_name      : Hotel Consultants Pvt Ltd
-  S1 address            : Orissa, Brahmapur, Ganjam, 6Th Lane Gosaninuagoan, Sadananda Bihar
+  S1 entity_id          : S1-325191772
+  S1 business_name      : Prag Line Private Limited
+  S1 address            : Flat11, Jamuna, Pl No.45/48, Chheda Nagar, Chembur, Mumbai, Maharashtra
   S1 country            : India
-  True matched ID       : S2-338667994
-  Matched business_name : ହୋଟେଲ୍ କନସଲଟାଣ୍ଟସ୍ ପ୍ରାଇଭେଟ୍ ଲିମିଟେଡ୍
-  Matched address       : SADANANDA BIHAR, BRAHMAPUR, Orissa
+  True matched ID       : S2-275387830
+  Matched business_name : PRAGLINE.COM
+  Matched address       : FLAT#11, JAMUNA, PL NO.45/48, CHHEDA NAGAR, CHEMBUR, MUMBAI, Maharashtra
 
 --- Missed Example #2 ---
-  S1 entity_id          : S1-729616534
-  S1 business_name      : Friederike Mullally Platinum Payments Inc
-  S1 address            : 4930 Ridge Road, Rosedale, MD
+  S1 entity_id          : S1-757386180
+  S1 business_name      : Eye Health of Stafford County
+  S1 address            : 21 Ellison Court, Stafford County, VA
   S1 country            : US
-  True matched ID       : S3-394955778
-  Matched business_name : Friederike Múllally Platinum Platinum Payments Inc
-  Matched address       : 
+  True matched ID       : S3-483905429
+  Matched business_name : Lyraxylo formerly: Eye Health of Stafford County
+  Matched address       : Stafford County, VA, 21 Ellison Court
 
 --- Missed Example #3 ---
-  S1 entity_id          : S1-430765389
-  S1 business_name      : Darlene's Quality Occupational Therapy LLC
-  S1 address            : 480 Mountain Meadows Drive, Fairfield, CA
+  S1 entity_id          : S1-289090318
+  S1 business_name      : Delta Precision Fox LLC
+  S1 address            : 5502 Constitution Route, Buckingham County, VA
   S1 country            : US
-  True matched ID       : S3-657259293
-  Matched business_name : Darlene's Qroubldity Occupational Therapy  LLC
-  Matched address       : 
+  True matched ID       : S3-773848453
+  Matched business_name : Brixnex a/k/a Delta Precision Fox LLC
+  Matched address       : Buckingham County, VA, 5502 Constitution Route
 
 --- Missed Example #4 ---
-  S1 entity_id          : S1-247763590
-  S1 business_name      : City Buildestate Private Limited
-  S1 address            : Bawali Estates Pvt. Ltd., The Rajbari, Prop Mr. Ajay Rawla, Vill North Bawali, P.O -Bawali, Budge Budge - Ii, South 24 Parganas, West Bengal
-  S1 country            : India
-  True matched ID       : S3-914323629
-  Matched business_name : Mr citybuildestate.com
-  Matched address       : Hn 261 Bawali Estates Pvt. Ltd., NULL, Budge Budge - Ii, South 24 Parganas, WB
+  S1 entity_id          : S1-582739792
+  S1 business_name      : Crystal Aura Group
+  S1 address            : OK, Vinita, 35561 Circle Drive
+  S1 country            : US
+  True matched ID       : S2-499284616
+  Matched business_name : Crystal Aohua Group
+  Matched address       : 85561 CIRCLE DR, VINITA, OK
 
 --- Missed Example #5 ---
-  S1 entity_id          : S1-31012177
-  S1 business_name      : United Enterprises Private Limited
-  S1 address            : C/O- Nira Pada Paul, Vill- Gohalbati, P.O- Sreenagar, P.S- Habra, Habra, West Bengal
-  S1 country            : India
-  True matched ID       : S2-919895651
-  Matched business_name : ইউনাইটেড এন্টারপ্রাইজেস প্রাইভেট লিমিটেড
-  Matched address       : পশ্চিমবঙ্গ, C/O- NIRA PADA PAUL, P.S- HABRA, KOLKATA
+  S1 entity_id          : S1-754103563
+  S1 business_name      : Cultural Association
+  S1 address            : Unit 200, NC, Raleigh, 207 Hargett Street
+  S1 country            : US
+  True matched ID       : S3-410767913
+  Matched business_name : Cultural Cultural Association
+  Matched address       : 207 Hargett Street, Unit 200, Raleigh, North Carolina
 
 --- Missed Example #6 ---
-  S1 entity_id          : S1-223603230
-  S1 business_name      : QWH Emporium Pvt Ltd
-  S1 address            : Rajasthan, Shanti Nagar, Hatwara Road, 52-A-Adarsh Colony, Jaipur
-  S1 country            : India
-  True matched ID       : S3-482478570
-  Matched business_name : QWH Pvt Ltd Services
-  Matched address       : Jaipur, राजस्थान, Hatwara Road, Shanti Nagar, H.no 2-A-Adarsh Colony
+  S1 entity_id          : S1-682608304
+  S1 business_name      : Gulf Super, Inc
+  S1 address            : 2023 Monroe Street, City Of Two Rivers, WI
+  S1 country            : US
+  True matched ID       : S2-53900452
+  Matched business_name : Gu1f Super, Inc
+  Matched address       : MONROE SAINT, TWO RIVERS, WI
 
 --- Missed Example #7 ---
-  S1 entity_id          : S1-616547545
-  S1 business_name      : Bay Boutique LLC
-  S1 address            : 202 State Road, Fairmount, IL
+  S1 entity_id          : S1-239913207
+  S1 business_name      : Baldwin Heritage Housing Associates
+  S1 address            : 4022 Raccoon Circle, Monticello, IN
   S1 country            : US
-  True matched ID       : S3-42722565
-  Matched business_name : Bay Bay LLC Service
-  Matched address       : Fairmount, State Rd, Illinois
+  True matched ID       : S3-205239559
+  Matched business_name : Evohalo
+  Matched address       : 004022 Raccoon Cir, Monticello, Indiana
 
 --- Missed Example #8 ---
-  S1 entity_id          : S1-633140475
-  S1 business_name      : Retana and Bellinger Inc
-  S1 address            : 138 Ymca Road, New Hope, AL
-  S1 country            : US
-  True matched ID       : S3-137281148
-  Matched business_name : retanabellinger.com
-  Matched address       : 0138 Ymca Rd, New Hope, Alabama
+  S1 entity_id          : S1-122189975
+  S1 business_name      : Alpha Enterprises Pvt Ltd
+  S1 address            : C-383, Munirka, New Delhi, Health Clab, Bank Street, Delhi
+  S1 country            : India
+  True matched ID       : S2-651994446
+  Matched business_name : अल्फा एंटरप्राइजेज प्रा. लि.
+  Matched address       : C-9-383, MUNIRKA, NEW DELHI, Delhi
 
 --- Missed Example #9 ---
-  S1 entity_id          : S1-973875529
-  S1 business_name      : Shivam Foundation Limited
-  S1 address            : F5, Jumbo Bhairav Apartmen, Plot No 4 & 5, Bank Of Ba, Saidapet, Kanchipuram, Tamil Nadu
+  S1 entity_id          : S1-4695272
+  S1 business_name      : Simra Space (India) Private Limited
+  S1 address            : 3/1, Madras Chawl, Plot S-42/2, Tank Rd, Inamdar Est Marve Rd, Orlem, Near Dream Palace Hotel, Malad West, Mumbai City, Maharashtra
   S1 country            : India
-  True matched ID       : S3-394681327
-  Matched business_name : சிவம் ஃபவுண்டேஷன் லிமிடெட்
-  Matched address       : F5, Saidapet, TN
+  True matched ID       : S3-661882105
+  Matched business_name : Sri Simra Spáce (India) Private Limited
+  Matched address       : 3/1, Mumbai City, Malad West, MH, Madras Chawl, Plot S-42/2, Tank Rd, Inamdar Est Marve Rd, Orlem, Near Dream Palace Hotel
 
 --- Missed Example #10 ---
-  S1 entity_id          : S1-843379282
-  S1 business_name      : C O & R Acquisition LLC
-  S1 address            : 50 Rothmore Drive, Benwood, WV
-  S1 country            : US
-  True matched ID       : S3-26991844
-  Matched business_name : C O & Acquisition LLC Center
-  Matched address       : 
+  S1 entity_id          : S1-918039591
+  S1 business_name      : Hari Engineering Private Limited
+  S1 address            : Nh-29, Purani Tahsil, Sahadatpura, Mau, Maunathbhanjan, Uttar Pradesh
+  S1 country            : India
+  True matched ID       : S3-249329550
+  Matched business_name : हरि इंजीनियरिंग प्राइवेट लिमिटेड
+  Matched address       : UP, Mau, Nh-29, Maunathbhanjan
 
 --- Missed Example #11 ---
-  S1 entity_id          : S1-788858731
-  S1 business_name      : Shiv Consultants Private Limited
-  S1 address            : Karnataka, Mysore, C-9, Yadavagiri, C-10, Yadavagiri Industrial Area Near Joy Ice Cream
-  S1 country            : India
-  True matched ID       : S3-742717976
-  Matched business_name : ಶಿವ್ ಕನ್ಸಲ್ಟೆಂಟ್ಸ್ Private Limited
-  Matched address       : ಕರ್ನಾಟಕ, Yadavagiri, C-10, Yadavagiri Industrial Area Near Joy Ice Cream, Mysore, C-009
+  S1 entity_id          : S1-695774129
+  S1 business_name      : Hernandez's Smart Machine Works
+  S1 address            : 2585 Ogden Street, San Bernardino, CA
+  S1 country            : US
+  True matched ID       : S3-194940951
+  Matched business_name : hernandezssmartmachine.com
+  Matched address       : Ogden Street, San Bernardino, California
 
 --- Missed Example #12 ---
-  S1 entity_id          : S1-316289684
-  S1 business_name      : Valdez & Heldt Inc
-  S1 address            : Olympia, WA, Fl 1, 7417 Lucinda Court
-  S1 country            : US
-  True matched ID       : S2-601210885
-  Matched business_name : Valdez & Héldt Inc
-  Matched address       : 7417 LUCINDA CT, OLYMPIA, WA
+  S1 entity_id          : S1-583703911
+  S1 business_name      : Arihant Investments Private Limited
+  S1 address            : No. 201, 5Th Cross, 17Th Main, 2Nd Stage, J.P.Nagar, Mysore, Karnataka
+  S1 country            : India
+  True matched ID       : S3-174597649
+  Matched business_name : ಅರಿಹಂತ್ ಇನ್ವೆಸ್ಟ್‌ಮೆಂಟ್ಸ್ ಪ್ರೈವೇಟ್ ಲಿಮಿಟೆಡ್
+  Matched address       : ಕರ್ನಾಟಕ, No. 201, J.p.nagar, Mysore
 
 --- Missed Example #13 ---
-  S1 entity_id          : S1-597368840
-  S1 business_name      : Ashwini (India) Logistics Pvt Ltd
-  S1 address            : Sf-208 Tower C Time Square Fatehgunj, Vadodara, Gujarat
-  S1 country            : India
-  True matched ID       : S3-890870717
-  Matched business_name : Ashwini (Ihniha) Logistics Pvt Ltd
+  S1 entity_id          : S1-477426866
+  S1 business_name      : Urgent Care Physicians PC
+  S1 address            : 271 40, Honey Grove, TX
+  S1 country            : US
+  True matched ID       : S3-261151109
+  Matched business_name : Urgent Physicians PC  Services
   Matched address       : 
 
 --- Missed Example #14 ---
-  S1 entity_id          : S1-885027490
-  S1 business_name      : Lugo, Luther and Mills
-  S1 address            : 14 Colin Drive, Portsmouth City, VA
+  S1 entity_id          : S1-931480276
+  S1 business_name      : Supreme Beverage
+  S1 address            : 1515 5th Avenue, Unit 216, Nashville, TN
   S1 country            : US
-  True matched ID       : S3-263015434
-  Matched business_name : Lug0, Luther and Mills
-  Matched address       : 014 Colin Dr, Porsmouth Township, Virginia
+  True matched ID       : S3-146067121
+  Matched business_name : Supreme Béverage Corp
+  Matched address       : Tennessee, # 216, 1515 5st Ave, Nashville
 
 --- Missed Example #15 ---
-  S1 entity_id          : S1-989325747
-  S1 business_name      : Sas & Partners of Bengaluru Private Limited
-  S1 address            : No. 17/N, 18Th Cross, 15Th Main 3Rd Sector, Hsr Layout, Bengaluru, Bangalore, Karnataka
+  S1 entity_id          : S1-640719554
+  S1 business_name      : Golden Builders Pvt Ltd
+  S1 address            : Focal Point Rjp Jagdish Singh, Rajpura, Patiala, Punjab
   S1 country            : India
-  True matched ID       : S3-44620463
-  Matched business_name : Dr Sas & Praoners of Bengaluru Private Limited
-  Matched address       : No 17/N, Bangalore, Bengaluru, ಕರ್ನಾಟಕ
+  True matched ID       : S2-498435290
+  Matched business_name : ਗੋਲਡਨ ਬਿਲਡਰਜ਼ ਪ੍ਰਾ. ਲਿ.
+  Matched address       : FOCAL POINT RJP JAGDISH SINGH, RAJPURA, ਪੰਜਾਬ
 
 --- Missed Example #16 ---
-  S1 entity_id          : S1-275588951
-  S1 business_name      : Sharanya Solution Private Limited
-  S1 address            : Wadala Rly Station, Mumbai, 5 Floor Grd Plot-251 Tanibai Niwas David S Baretto Road, Mumbai, Maharashtra
-  S1 country            : India
-  True matched ID       : S3-119820111
-  Matched business_name : Fluxsol
-  Matched address       : No 5/1 Floor Grd Plot-251 Tanibai Niwas David S Baretto Road, Wadala Rly Station, Mumbai, महाराष्ट्र
+  S1 entity_id          : S1-775129035
+  S1 business_name      : Modern Semiconductor Concepts
+  S1 address            : Lower Merion Township, PA, Unit Unit G4, 100 St Georges Road
+  S1 country            : US
+  True matched ID       : S3-400861575
+  Matched business_name : Modern Seigconductar Concepts
+  Matched address       : 100 1/2 St Georges Road, Lower Merion Township, Pennsylvania
 
 --- Missed Example #17 ---
-  S1 entity_id          : S1-501522529
-  S1 business_name      : Pioneer Constructions Pvt Ltd
-  S1 address            : No 8/2B, Kerala, Alappuzha, Kodiyanthara, Varanad P O, Cherthala, Cherthala
-  S1 country            : India
-  True matched ID       : S3-519647815
-  Matched business_name : പയനിയർ കൺസ്ട്രക്ഷൻസ് പ്രൈവറ്റ് ലിമിറ്റഡ്
-  Matched address       : No 008/2B, Kodiyanthara, Varanad P O, Cherthala, Cherthala, Alappuzha, KL
+  S1 entity_id          : S1-778696976
+  S1 business_name      : Family Platinum Partners
+  S1 address            : 415 12th Street, Livingston, MT
+  S1 country            : US
+  True matched ID       : S3-875383136
+  Matched business_name : Partners Family Services
+  Matched address       : 15 12th St, Livingston, Montana
 
 --- Missed Example #18 ---
-  S1 entity_id          : S1-646479676
-  S1 business_name      : Bombay Global Infra
-  S1 address            : Plot No. 2026 P Sector-7, Sonipat, Sonepat, Haryana
+  S1 entity_id          : S1-735995910
+  S1 business_name      : (india) Nanjil Ice Pvt Ltd
+  S1 address            : 9, Sikka Complex, Community Center, Preet Vihar, East Delhi, Delhi
   S1 country            : India
-  True matched ID       : S2-923800855
-  Matched business_name : बॉम्बे ग्लोबल इंफ्रा
-  Matched address       : PLOT NO. 202 P SECTOR-7, SONIPAT, SONEPAT, Haryana
+  True matched ID       : S3-742671967
+  Matched business_name : indiananjilice.com
+  Matched address       : दिल्ली, Sikka Complex, Community Center, Preet Vihar, Plot 134 9, East Delhi
 
 --- Missed Example #19 ---
-  S1 entity_id          : S1-686775768
-  S1 business_name      : JHI Services
-  S1 address            : A-503, Ncc, Nagarjuna Residency Telecom Nagar, Opp Nasar Boys School, Ga, Chibowli, Hyderabad, Rangareddy, Telangana
+  S1 entity_id          : S1-505432464
+  S1 business_name      : Sai High Consultancy Private Limited
+  S1 address            : 3 Kedarnath Ch Soc, Shivpuri Colony St Chembur, Mumbai City, Maharashtra, Mumbai, 1
   S1 country            : India
-  True matched ID       : S2-331579448
-  Matched business_name : JHI Center
-  Matched address       : Andhra Pradesh, 70 A-503, NCC, NAGARJUNA RESIDENCY TELECOM NAGAR, OPP NASAR BOYS SCHOOL, GA, CHIBOWLI, HYDERABAD
+  True matched ID       : S3-830875846
+  Matched business_name : साईं हाई कंसल्टेंसी प्राइवेट लिमिटेड
+  Matched address       : 001, Mumbai City, Mumbai, महाराष्ट्र
 
 --- Missed Example #20 ---
-  S1 entity_id          : S1-655167387
-  S1 business_name      : Snb Foundation Private Limited
-  S1 address            : National Youth Computer T, C/O Sudip Barman, Vill-Bu, Sahid Matangini, East Midnapore, West Bengal
-  S1 country            : India
-  True matched ID       : S2-462446858
-  Matched business_name : Smt SNB FOUNDATION LIMITED PRIVATE
-  Matched address       : NATIONAL YOUTH COMPUTER T, C/O SUDIP BARMAN, VILL-BU, SAHID MATANGINI, West Bengal
+  S1 entity_id          : S1-865471630
+  S1 business_name      : Pediatric Dental Care Inc
+  S1 address            : 405 Granbury Street, Franklin, TN
+  S1 country            : US
+  True matched ID       : S3-731201025
+  Matched business_name : Pediatric Inc Care Dental
+  Matched address       : 
 
 --- Missed Example #21 ---
-  S1 entity_id          : S1-568571994
-  S1 business_name      : High Projects Limited
-  S1 address            : Village Shekhpur, Jaunpur, Uttar Pradesh
+  S1 entity_id          : S1-343373335
+  S1 business_name      : Enterprises Indo Realty
+  S1 address            : Kamaraj Avenue, 2Nd Street, Adyar, Chennai, Tamil Nadu, No.107/1 (39/1)
   S1 country            : India
-  True matched ID       : S3-420940363
-  Matched business_name : highprojects.com
-  Matched address       : #57 Village Shekhpur, Jaunpur, UP
+  True matched ID       : S2-134866455
+  Matched business_name : Enterprises Realty Indo
+  Matched address       : NO.107/1 (39/1), KAMARAJ AVENUE, 2ND STREET, ADYAR, CHENNAI, தமிழ்நாடு
 
 --- Missed Example #22 ---
-  S1 entity_id          : S1-661044770
-  S1 business_name      : Sree Agro
-  S1 address            : Thane, 515 C Wing Kasturi Height, Thane, Bldg No 2 Eden Park Rd, Maharashtra
+  S1 entity_id          : S1-16656800
+  S1 business_name      : All Global Private Limited
+  S1 address            : 47-015/10, 3Rd Floor, Sri Sai Colony, Chintal, Hyderabad, Telangana
   S1 country            : India
-  True matched ID       : S3-810533676
-  Matched business_name : श्री एग्रो
-  Matched address       : 515 C Wing Kasturi Height, Bldg No 2 Eden Park Rd, Thane, Bhayander East, MH
+  True matched ID       : S3-110913760
+  Matched business_name : ఆల్ గ్లోబల్ ప్రైవేట్ లిమిటెడ్
+  Matched address       : 3Rd Floor, Sri Sai Colony, Chintal, 47-015/10, TG, Hyderabad
 
 --- Missed Example #23 ---
-  S1 entity_id          : S1-140083019
-  S1 business_name      : Big Software Private Limited
-  S1 address            : Dr No.17-26-90 Pezzonipet, Kopelavari Street, Vijayawada (Urban), Krishna, Andhra Pradesh
+  S1 entity_id          : S1-861512700
+  S1 business_name      : Shyam Agro Private Limited
+  S1 address            : A/708, Kanakia Wallstreet, Andheri Kurla Rd, Chakala Junction, Andheri East, Mumbai, Mumbai City, Maharashtra
   S1 country            : India
-  True matched ID       : S3-995789938
-  Matched business_name : బిగ్ సాఫ్ట్‌వేర్ ప్రైవేట్ లిమిటెడ్
-  Matched address       : Door No 221 Dr No.17-26-90 Pezzonipet, Kopelavari Street, Vijayawada (Urban), Krishna, AP
+  True matched ID       : S2-592598894
+  Matched business_name : श्याम एग्रो प्राइवेट लिमिटेड
+  Matched address       : A/70, KANAKIA WALLSTREET, ANDHERI KURLA RD, CHAKALA JUNCTION, ANDHERI EAST, MUMBAI, MUMBAI CITY, Maharashtra
 
 --- Missed Example #24 ---
-  S1 entity_id          : S1-379756857
-  S1 business_name      : Variant Exporters Private Limited
-  S1 address            : 24 Ujwal Soc Narendranagar, Nagpur, Maharashtra
+  S1 entity_id          : S1-957932796
+  S1 business_name      : Solutions Phoenix Health LLP
+  S1 address            : Dohra Road, Harunagla, Uttar Pradesh, Bareilly, Shiva Ji Nagar
   S1 country            : India
-  True matched ID       : S2-152305990
-  Matched business_name : variantexporters.com
-  Matched address       : 32 UJWAL SOC NARENDRANAGAR, NAGPUR, Maharashtra
+  True matched ID       : S3-997183153
+  Matched business_name : Solutions Ponix Health LLP
+  Matched address       : UP, Shahjahanpur, Shiva Ji Nagar, Dohra Road, Harunagla, Bareilly
 
 --- Missed Example #25 ---
-  S1 entity_id          : S1-121476456
-  S1 business_name      : Built Consultancy Private Limited
-  S1 address            : Telangana, Hyderabad, Survey No75A 76, New No103, 104Aparna Astute, Shaikpet, Asifnagar
-  S1 country            : India
-  True matched ID       : S3-13712266
-  Matched business_name : builtconsultancy.com
-  Matched address       : Door No 75A 76, New No103, 104Aparna Astute, Shaikpet, Asifnagar, Hyderabad, TG
+  S1 entity_id          : S1-222426111
+  S1 business_name      : Mount Lutheran Church
+  S1 address            : 4200 U, Unit Hangar 32B, City Of Hartford, WI
+  S1 country            : US
+  True matched ID       : S2-346443496
+  Matched business_name : Pyravantagedelta
+  Matched address       : 04200 U, CITY OF HARTFORD, WI
 
 ================================================================================
 NOISE PATTERNS & INSIGHTS OBSERVED FROM MISSED MATCHES:
