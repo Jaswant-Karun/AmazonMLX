@@ -1,0 +1,336 @@
+================================================================================
+BLOCKING EXPERIMENT REPORT — AMAZON ML CHALLENGE 2026
+================================================================================
+Validation Sample Size   : 50,000 Source 1 entities (deterministic sample from 10% val split, seed=42)
+Total Ground Truth Pairs : 173,260
+Entities with GT Matches : 47,163 (94.33%)
+Singleton Entities       : 2,837 (5.67%)
+Total Experiment Time    : 486.39s
+================================================================================
+
+--------------------------------------------------------------------------------
+STRATEGY DEFINITIONS:
+  BLOCK 1: country + normalized business name
+  BLOCK 2: country + normalized business name prefix/token signature
+  BLOCK 3: country + selected normalized address tokens (numeric + alpha)
+  BLOCK 4: country + primary name token + primary address token
+  UNION  : combined candidates from BLOCK 1, 2, 3, and 4
+--------------------------------------------------------------------------------
+
+==========================================================================================
+SUMMARY EVALUATION TABLE
+==========================================================================================
+Blocking Strategy          | Candidates  | Avg/S1   | Med/S1 | Max/S1  | Zero-Cand | Blocking Recall | Entity Recall
+--------------------------------------------------------------------------------------------------------------------
+BLOCK 1                    |     483,994 |      9.7 |    1.0 |     458 |    14,500 | 37,869/173,260 (21.86%) | 25,924/47,163 (54.97%)
+BLOCK 2                    |  28,470,902 |    569.4 |   11.0 |  19,106 |       815 | 101,896/173,260 (58.81%) | 42,282/47,163 (89.65%)
+BLOCK 3                    |  26,585,659 |    531.7 |    9.0 |  26,803 |     3,641 | 102,668/173,260 (59.26%) | 39,400/47,163 (83.54%)
+BLOCK 4                    |   1,457,419 |     29.1 |    5.0 |   2,887 |     1,239 | 113,393/173,260 (65.45%) | 42,770/47,163 (90.69%)
+UNION (ALL STRATEGIES)     |  56,180,769 |   1123.6 |   76.0 |  39,584 |        38 | 152,740/173,260 (88.16%) | 46,301/47,163 (98.17%)
+==========================================================================================
+
+################################################################################
+DETAILED STRATEGY METRICS
+################################################################################
+
+[BLOCK 1]
+  Total candidate pairs         : 483,994
+  Average candidates per S1     : 9.68
+  Median candidates per S1      : 1.0
+  Maximum candidates per S1     : 458
+  S1 entities with 0 candidates : 14,500 (29.00%)
+  Ground-truth pairs recalled   : 37,869 / 173,260
+  Ground-truth pairs missed     : 135,391
+  Pair-level Blocking Recall    : 21.86%
+  Entity-level Candidate Recall : 54.97% (25,924 / 47,163 entities with >=1 match)
+
+[BLOCK 2]
+  Total candidate pairs         : 28,470,902
+  Average candidates per S1     : 569.42
+  Median candidates per S1      : 11.0
+  Maximum candidates per S1     : 19,106
+  S1 entities with 0 candidates : 815 (1.63%)
+  Ground-truth pairs recalled   : 101,896 / 173,260
+  Ground-truth pairs missed     : 71,364
+  Pair-level Blocking Recall    : 58.81%
+  Entity-level Candidate Recall : 89.65% (42,282 / 47,163 entities with >=1 match)
+
+[BLOCK 3]
+  Total candidate pairs         : 26,585,659
+  Average candidates per S1     : 531.71
+  Median candidates per S1      : 9.0
+  Maximum candidates per S1     : 26,803
+  S1 entities with 0 candidates : 3,641 (7.28%)
+  Ground-truth pairs recalled   : 102,668 / 173,260
+  Ground-truth pairs missed     : 70,592
+  Pair-level Blocking Recall    : 59.26%
+  Entity-level Candidate Recall : 83.54% (39,400 / 47,163 entities with >=1 match)
+
+[BLOCK 4]
+  Total candidate pairs         : 1,457,419
+  Average candidates per S1     : 29.15
+  Median candidates per S1      : 5.0
+  Maximum candidates per S1     : 2,887
+  S1 entities with 0 candidates : 1,239 (2.48%)
+  Ground-truth pairs recalled   : 113,393 / 173,260
+  Ground-truth pairs missed     : 59,867
+  Pair-level Blocking Recall    : 65.45%
+  Entity-level Candidate Recall : 90.69% (42,770 / 47,163 entities with >=1 match)
+
+[UNION (ALL STRATEGIES)]
+  Total candidate pairs         : 56,180,769
+  Average candidates per S1     : 1123.62
+  Median candidates per S1      : 76.0
+  Maximum candidates per S1     : 39,584
+  S1 entities with 0 candidates : 38 (0.08%)
+  Ground-truth pairs recalled   : 152,740 / 173,260
+  Ground-truth pairs missed     : 20,520
+  Pair-level Blocking Recall    : 88.16%
+  Entity-level Candidate Recall : 98.17% (46,301 / 47,163 entities with >=1 match)
+
+================================================================================
+ERROR ANALYSIS: EXAMPLES OF MISSED GROUND-TRUTH MATCHES (Total Missed: 20,520)
+================================================================================
+
+--- Missed Example #1 ---
+  S1 entity_id          : S1-325191772
+  S1 business_name      : Prag Line Private Limited
+  S1 address            : Flat11, Jamuna, Pl No.45/48, Chheda Nagar, Chembur, Mumbai, Maharashtra
+  S1 country            : India
+  True matched ID       : S2-275387830
+  Matched business_name : PRAGLINE.COM
+  Matched address       : FLAT#11, JAMUNA, PL NO.45/48, CHHEDA NAGAR, CHEMBUR, MUMBAI, Maharashtra
+
+--- Missed Example #2 ---
+  S1 entity_id          : S1-757386180
+  S1 business_name      : Eye Health of Stafford County
+  S1 address            : 21 Ellison Court, Stafford County, VA
+  S1 country            : US
+  True matched ID       : S3-483905429
+  Matched business_name : Lyraxylo formerly: Eye Health of Stafford County
+  Matched address       : Stafford County, VA, 21 Ellison Court
+
+--- Missed Example #3 ---
+  S1 entity_id          : S1-289090318
+  S1 business_name      : Delta Precision Fox LLC
+  S1 address            : 5502 Constitution Route, Buckingham County, VA
+  S1 country            : US
+  True matched ID       : S3-773848453
+  Matched business_name : Brixnex a/k/a Delta Precision Fox LLC
+  Matched address       : Buckingham County, VA, 5502 Constitution Route
+
+--- Missed Example #4 ---
+  S1 entity_id          : S1-582739792
+  S1 business_name      : Crystal Aura Group
+  S1 address            : OK, Vinita, 35561 Circle Drive
+  S1 country            : US
+  True matched ID       : S2-499284616
+  Matched business_name : Crystal Aohua Group
+  Matched address       : 85561 CIRCLE DR, VINITA, OK
+
+--- Missed Example #5 ---
+  S1 entity_id          : S1-754103563
+  S1 business_name      : Cultural Association
+  S1 address            : Unit 200, NC, Raleigh, 207 Hargett Street
+  S1 country            : US
+  True matched ID       : S3-410767913
+  Matched business_name : Cultural Cultural Association
+  Matched address       : 207 Hargett Street, Unit 200, Raleigh, North Carolina
+
+--- Missed Example #6 ---
+  S1 entity_id          : S1-682608304
+  S1 business_name      : Gulf Super, Inc
+  S1 address            : 2023 Monroe Street, City Of Two Rivers, WI
+  S1 country            : US
+  True matched ID       : S2-53900452
+  Matched business_name : Gu1f Super, Inc
+  Matched address       : MONROE SAINT, TWO RIVERS, WI
+
+--- Missed Example #7 ---
+  S1 entity_id          : S1-239913207
+  S1 business_name      : Baldwin Heritage Housing Associates
+  S1 address            : 4022 Raccoon Circle, Monticello, IN
+  S1 country            : US
+  True matched ID       : S3-205239559
+  Matched business_name : Evohalo
+  Matched address       : 004022 Raccoon Cir, Monticello, Indiana
+
+--- Missed Example #8 ---
+  S1 entity_id          : S1-122189975
+  S1 business_name      : Alpha Enterprises Pvt Ltd
+  S1 address            : C-383, Munirka, New Delhi, Health Clab, Bank Street, Delhi
+  S1 country            : India
+  True matched ID       : S2-651994446
+  Matched business_name : अल्फा एंटरप्राइजेज प्रा. लि.
+  Matched address       : C-9-383, MUNIRKA, NEW DELHI, Delhi
+
+--- Missed Example #9 ---
+  S1 entity_id          : S1-4695272
+  S1 business_name      : Simra Space (India) Private Limited
+  S1 address            : 3/1, Madras Chawl, Plot S-42/2, Tank Rd, Inamdar Est Marve Rd, Orlem, Near Dream Palace Hotel, Malad West, Mumbai City, Maharashtra
+  S1 country            : India
+  True matched ID       : S3-661882105
+  Matched business_name : Sri Simra Spáce (India) Private Limited
+  Matched address       : 3/1, Mumbai City, Malad West, MH, Madras Chawl, Plot S-42/2, Tank Rd, Inamdar Est Marve Rd, Orlem, Near Dream Palace Hotel
+
+--- Missed Example #10 ---
+  S1 entity_id          : S1-918039591
+  S1 business_name      : Hari Engineering Private Limited
+  S1 address            : Nh-29, Purani Tahsil, Sahadatpura, Mau, Maunathbhanjan, Uttar Pradesh
+  S1 country            : India
+  True matched ID       : S3-249329550
+  Matched business_name : हरि इंजीनियरिंग प्राइवेट लिमिटेड
+  Matched address       : UP, Mau, Nh-29, Maunathbhanjan
+
+--- Missed Example #11 ---
+  S1 entity_id          : S1-695774129
+  S1 business_name      : Hernandez's Smart Machine Works
+  S1 address            : 2585 Ogden Street, San Bernardino, CA
+  S1 country            : US
+  True matched ID       : S3-194940951
+  Matched business_name : hernandezssmartmachine.com
+  Matched address       : Ogden Street, San Bernardino, California
+
+--- Missed Example #12 ---
+  S1 entity_id          : S1-583703911
+  S1 business_name      : Arihant Investments Private Limited
+  S1 address            : No. 201, 5Th Cross, 17Th Main, 2Nd Stage, J.P.Nagar, Mysore, Karnataka
+  S1 country            : India
+  True matched ID       : S3-174597649
+  Matched business_name : ಅರಿಹಂತ್ ಇನ್ವೆಸ್ಟ್‌ಮೆಂಟ್ಸ್ ಪ್ರೈವೇಟ್ ಲಿಮಿಟೆಡ್
+  Matched address       : ಕರ್ನಾಟಕ, No. 201, J.p.nagar, Mysore
+
+--- Missed Example #13 ---
+  S1 entity_id          : S1-477426866
+  S1 business_name      : Urgent Care Physicians PC
+  S1 address            : 271 40, Honey Grove, TX
+  S1 country            : US
+  True matched ID       : S3-261151109
+  Matched business_name : Urgent Physicians PC  Services
+  Matched address       : 
+
+--- Missed Example #14 ---
+  S1 entity_id          : S1-931480276
+  S1 business_name      : Supreme Beverage
+  S1 address            : 1515 5th Avenue, Unit 216, Nashville, TN
+  S1 country            : US
+  True matched ID       : S3-146067121
+  Matched business_name : Supreme Béverage Corp
+  Matched address       : Tennessee, # 216, 1515 5st Ave, Nashville
+
+--- Missed Example #15 ---
+  S1 entity_id          : S1-640719554
+  S1 business_name      : Golden Builders Pvt Ltd
+  S1 address            : Focal Point Rjp Jagdish Singh, Rajpura, Patiala, Punjab
+  S1 country            : India
+  True matched ID       : S2-498435290
+  Matched business_name : ਗੋਲਡਨ ਬਿਲਡਰਜ਼ ਪ੍ਰਾ. ਲਿ.
+  Matched address       : FOCAL POINT RJP JAGDISH SINGH, RAJPURA, ਪੰਜਾਬ
+
+--- Missed Example #16 ---
+  S1 entity_id          : S1-775129035
+  S1 business_name      : Modern Semiconductor Concepts
+  S1 address            : Lower Merion Township, PA, Unit Unit G4, 100 St Georges Road
+  S1 country            : US
+  True matched ID       : S3-400861575
+  Matched business_name : Modern Seigconductar Concepts
+  Matched address       : 100 1/2 St Georges Road, Lower Merion Township, Pennsylvania
+
+--- Missed Example #17 ---
+  S1 entity_id          : S1-778696976
+  S1 business_name      : Family Platinum Partners
+  S1 address            : 415 12th Street, Livingston, MT
+  S1 country            : US
+  True matched ID       : S3-875383136
+  Matched business_name : Partners Family Services
+  Matched address       : 15 12th St, Livingston, Montana
+
+--- Missed Example #18 ---
+  S1 entity_id          : S1-735995910
+  S1 business_name      : (india) Nanjil Ice Pvt Ltd
+  S1 address            : 9, Sikka Complex, Community Center, Preet Vihar, East Delhi, Delhi
+  S1 country            : India
+  True matched ID       : S3-742671967
+  Matched business_name : indiananjilice.com
+  Matched address       : दिल्ली, Sikka Complex, Community Center, Preet Vihar, Plot 134 9, East Delhi
+
+--- Missed Example #19 ---
+  S1 entity_id          : S1-505432464
+  S1 business_name      : Sai High Consultancy Private Limited
+  S1 address            : 3 Kedarnath Ch Soc, Shivpuri Colony St Chembur, Mumbai City, Maharashtra, Mumbai, 1
+  S1 country            : India
+  True matched ID       : S3-830875846
+  Matched business_name : साईं हाई कंसल्टेंसी प्राइवेट लिमिटेड
+  Matched address       : 001, Mumbai City, Mumbai, महाराष्ट्र
+
+--- Missed Example #20 ---
+  S1 entity_id          : S1-865471630
+  S1 business_name      : Pediatric Dental Care Inc
+  S1 address            : 405 Granbury Street, Franklin, TN
+  S1 country            : US
+  True matched ID       : S3-731201025
+  Matched business_name : Pediatric Inc Care Dental
+  Matched address       : 
+
+--- Missed Example #21 ---
+  S1 entity_id          : S1-343373335
+  S1 business_name      : Enterprises Indo Realty
+  S1 address            : Kamaraj Avenue, 2Nd Street, Adyar, Chennai, Tamil Nadu, No.107/1 (39/1)
+  S1 country            : India
+  True matched ID       : S2-134866455
+  Matched business_name : Enterprises Realty Indo
+  Matched address       : NO.107/1 (39/1), KAMARAJ AVENUE, 2ND STREET, ADYAR, CHENNAI, தமிழ்நாடு
+
+--- Missed Example #22 ---
+  S1 entity_id          : S1-16656800
+  S1 business_name      : All Global Private Limited
+  S1 address            : 47-015/10, 3Rd Floor, Sri Sai Colony, Chintal, Hyderabad, Telangana
+  S1 country            : India
+  True matched ID       : S3-110913760
+  Matched business_name : ఆల్ గ్లోబల్ ప్రైవేట్ లిమిటెడ్
+  Matched address       : 3Rd Floor, Sri Sai Colony, Chintal, 47-015/10, TG, Hyderabad
+
+--- Missed Example #23 ---
+  S1 entity_id          : S1-861512700
+  S1 business_name      : Shyam Agro Private Limited
+  S1 address            : A/708, Kanakia Wallstreet, Andheri Kurla Rd, Chakala Junction, Andheri East, Mumbai, Mumbai City, Maharashtra
+  S1 country            : India
+  True matched ID       : S2-592598894
+  Matched business_name : श्याम एग्रो प्राइवेट लिमिटेड
+  Matched address       : A/70, KANAKIA WALLSTREET, ANDHERI KURLA RD, CHAKALA JUNCTION, ANDHERI EAST, MUMBAI, MUMBAI CITY, Maharashtra
+
+--- Missed Example #24 ---
+  S1 entity_id          : S1-957932796
+  S1 business_name      : Solutions Phoenix Health LLP
+  S1 address            : Dohra Road, Harunagla, Uttar Pradesh, Bareilly, Shiva Ji Nagar
+  S1 country            : India
+  True matched ID       : S3-997183153
+  Matched business_name : Solutions Ponix Health LLP
+  Matched address       : UP, Shahjahanpur, Shiva Ji Nagar, Dohra Road, Harunagla, Bareilly
+
+--- Missed Example #25 ---
+  S1 entity_id          : S1-222426111
+  S1 business_name      : Mount Lutheran Church
+  S1 address            : 4200 U, Unit Hangar 32B, City Of Hartford, WI
+  S1 country            : US
+  True matched ID       : S2-346443496
+  Matched business_name : Pyravantagedelta
+  Matched address       : 04200 U, CITY OF HARTFORD, WI
+
+================================================================================
+NOISE PATTERNS & INSIGHTS OBSERVED FROM MISSED MATCHES:
+================================================================================
+1. URL / Domain Names as Business Names:
+   Source 3 frequently substitutes a company website/URL (e.g. 'xyzcorp.com') for the name.
+2. Severe Typographic & OCR/Transliteration Errors:
+   Letters transposed, phonetic spelling changes, or non-Latin script translations.
+3. Missing / Blank Addresses in S2 & S3:
+   When a matching S2/S3 record has no address AND its business name differs by more than legal suffix,
+   name-only or address-only blocks fail to link them.
+4. Street vs Landmark Address Discrepancies:
+   In Indian records, street numbers are often replaced with landmarks (e.g., 'Near SBI Branch').
+5. High Recall of Combined Strategy:
+   The UNION of 4 deterministic strategies captures 88.16% of all GT pairs
+   and 98.17% of entities, dramatically reducing the candidate space
+   from 10.3 million to a manageable set per entity before downstream scoring.
+================================================================================

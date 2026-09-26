@@ -1,0 +1,336 @@
+================================================================================
+BLOCKING EXPERIMENT REPORT — AMAZON ML CHALLENGE 2026
+================================================================================
+Validation Sample Size   : 50,000 Source 1 entities (deterministic sample from 10% val split, seed=42)
+Total Ground Truth Pairs : 173,260
+Entities with GT Matches : 47,163 (94.33%)
+Singleton Entities       : 2,837 (5.67%)
+Total Experiment Time    : 486.73s
+================================================================================
+
+--------------------------------------------------------------------------------
+STRATEGY DEFINITIONS:
+  BLOCK 1: country + normalized business name
+  BLOCK 2: country + normalized business name prefix/token signature
+  BLOCK 3: country + selected normalized address tokens (numeric + alpha)
+  BLOCK 4: country + primary name token + primary address token
+  UNION  : combined candidates from BLOCK 1, 2, 3, and 4
+--------------------------------------------------------------------------------
+
+==========================================================================================
+SUMMARY EVALUATION TABLE
+==========================================================================================
+Blocking Strategy          | Candidates  | Avg/S1   | Med/S1 | Max/S1  | Zero-Cand | Blocking Recall | Entity Recall
+--------------------------------------------------------------------------------------------------------------------
+BLOCK 1                    |     483,994 |      9.7 |    1.0 |     458 |    14,500 | 37,869/173,260 (21.86%) | 25,924/47,163 (54.97%)
+BLOCK 2                    |  28,470,902 |    569.4 |   11.0 |  19,106 |       815 | 101,896/173,260 (58.81%) | 42,282/47,163 (89.65%)
+BLOCK 3                    |  26,585,659 |    531.7 |    9.0 |  26,803 |     3,641 | 102,668/173,260 (59.26%) | 39,400/47,163 (83.54%)
+BLOCK 4                    |   1,457,419 |     29.1 |    5.0 |   2,887 |     1,239 | 113,393/173,260 (65.45%) | 42,770/47,163 (90.69%)
+UNION (ALL STRATEGIES)     |  56,180,769 |   1123.6 |   76.0 |  39,584 |        38 | 152,740/173,260 (88.16%) | 46,301/47,163 (98.17%)
+==========================================================================================
+
+################################################################################
+DETAILED STRATEGY METRICS
+################################################################################
+
+[BLOCK 1]
+  Total candidate pairs         : 483,994
+  Average candidates per S1     : 9.68
+  Median candidates per S1      : 1.0
+  Maximum candidates per S1     : 458
+  S1 entities with 0 candidates : 14,500 (29.00%)
+  Ground-truth pairs recalled   : 37,869 / 173,260
+  Ground-truth pairs missed     : 135,391
+  Pair-level Blocking Recall    : 21.86%
+  Entity-level Candidate Recall : 54.97% (25,924 / 47,163 entities with >=1 match)
+
+[BLOCK 2]
+  Total candidate pairs         : 28,470,902
+  Average candidates per S1     : 569.42
+  Median candidates per S1      : 11.0
+  Maximum candidates per S1     : 19,106
+  S1 entities with 0 candidates : 815 (1.63%)
+  Ground-truth pairs recalled   : 101,896 / 173,260
+  Ground-truth pairs missed     : 71,364
+  Pair-level Blocking Recall    : 58.81%
+  Entity-level Candidate Recall : 89.65% (42,282 / 47,163 entities with >=1 match)
+
+[BLOCK 3]
+  Total candidate pairs         : 26,585,659
+  Average candidates per S1     : 531.71
+  Median candidates per S1      : 9.0
+  Maximum candidates per S1     : 26,803
+  S1 entities with 0 candidates : 3,641 (7.28%)
+  Ground-truth pairs recalled   : 102,668 / 173,260
+  Ground-truth pairs missed     : 70,592
+  Pair-level Blocking Recall    : 59.26%
+  Entity-level Candidate Recall : 83.54% (39,400 / 47,163 entities with >=1 match)
+
+[BLOCK 4]
+  Total candidate pairs         : 1,457,419
+  Average candidates per S1     : 29.15
+  Median candidates per S1      : 5.0
+  Maximum candidates per S1     : 2,887
+  S1 entities with 0 candidates : 1,239 (2.48%)
+  Ground-truth pairs recalled   : 113,393 / 173,260
+  Ground-truth pairs missed     : 59,867
+  Pair-level Blocking Recall    : 65.45%
+  Entity-level Candidate Recall : 90.69% (42,770 / 47,163 entities with >=1 match)
+
+[UNION (ALL STRATEGIES)]
+  Total candidate pairs         : 56,180,769
+  Average candidates per S1     : 1123.62
+  Median candidates per S1      : 76.0
+  Maximum candidates per S1     : 39,584
+  S1 entities with 0 candidates : 38 (0.08%)
+  Ground-truth pairs recalled   : 152,740 / 173,260
+  Ground-truth pairs missed     : 20,520
+  Pair-level Blocking Recall    : 88.16%
+  Entity-level Candidate Recall : 98.17% (46,301 / 47,163 entities with >=1 match)
+
+================================================================================
+ERROR ANALYSIS: EXAMPLES OF MISSED GROUND-TRUTH MATCHES (Total Missed: 20,520)
+================================================================================
+
+--- Missed Example #1 ---
+  S1 entity_id          : S1-218958222
+  S1 business_name      : Hotel Consultants Pvt Ltd
+  S1 address            : Orissa, Brahmapur, Ganjam, 6Th Lane Gosaninuagoan, Sadananda Bihar
+  S1 country            : India
+  True matched ID       : S2-338667994
+  Matched business_name : ହୋଟେଲ୍ କନସଲଟାଣ୍ଟସ୍ ପ୍ରାଇଭେଟ୍ ଲିମିଟେଡ୍
+  Matched address       : SADANANDA BIHAR, BRAHMAPUR, Orissa
+
+--- Missed Example #2 ---
+  S1 entity_id          : S1-729616534
+  S1 business_name      : Friederike Mullally Platinum Payments Inc
+  S1 address            : 4930 Ridge Road, Rosedale, MD
+  S1 country            : US
+  True matched ID       : S3-394955778
+  Matched business_name : Friederike Múllally Platinum Platinum Payments Inc
+  Matched address       : 
+
+--- Missed Example #3 ---
+  S1 entity_id          : S1-430765389
+  S1 business_name      : Darlene's Quality Occupational Therapy LLC
+  S1 address            : 480 Mountain Meadows Drive, Fairfield, CA
+  S1 country            : US
+  True matched ID       : S3-657259293
+  Matched business_name : Darlene's Qroubldity Occupational Therapy  LLC
+  Matched address       : 
+
+--- Missed Example #4 ---
+  S1 entity_id          : S1-247763590
+  S1 business_name      : City Buildestate Private Limited
+  S1 address            : Bawali Estates Pvt. Ltd., The Rajbari, Prop Mr. Ajay Rawla, Vill North Bawali, P.O -Bawali, Budge Budge - Ii, South 24 Parganas, West Bengal
+  S1 country            : India
+  True matched ID       : S3-914323629
+  Matched business_name : Mr citybuildestate.com
+  Matched address       : Hn 261 Bawali Estates Pvt. Ltd., NULL, Budge Budge - Ii, South 24 Parganas, WB
+
+--- Missed Example #5 ---
+  S1 entity_id          : S1-31012177
+  S1 business_name      : United Enterprises Private Limited
+  S1 address            : C/O- Nira Pada Paul, Vill- Gohalbati, P.O- Sreenagar, P.S- Habra, Habra, West Bengal
+  S1 country            : India
+  True matched ID       : S2-919895651
+  Matched business_name : ইউনাইটেড এন্টারপ্রাইজেস প্রাইভেট লিমিটেড
+  Matched address       : পশ্চিমবঙ্গ, C/O- NIRA PADA PAUL, P.S- HABRA, KOLKATA
+
+--- Missed Example #6 ---
+  S1 entity_id          : S1-223603230
+  S1 business_name      : QWH Emporium Pvt Ltd
+  S1 address            : Rajasthan, Shanti Nagar, Hatwara Road, 52-A-Adarsh Colony, Jaipur
+  S1 country            : India
+  True matched ID       : S3-482478570
+  Matched business_name : QWH Pvt Ltd Services
+  Matched address       : Jaipur, राजस्थान, Hatwara Road, Shanti Nagar, H.no 2-A-Adarsh Colony
+
+--- Missed Example #7 ---
+  S1 entity_id          : S1-616547545
+  S1 business_name      : Bay Boutique LLC
+  S1 address            : 202 State Road, Fairmount, IL
+  S1 country            : US
+  True matched ID       : S3-42722565
+  Matched business_name : Bay Bay LLC Service
+  Matched address       : Fairmount, State Rd, Illinois
+
+--- Missed Example #8 ---
+  S1 entity_id          : S1-633140475
+  S1 business_name      : Retana and Bellinger Inc
+  S1 address            : 138 Ymca Road, New Hope, AL
+  S1 country            : US
+  True matched ID       : S3-137281148
+  Matched business_name : retanabellinger.com
+  Matched address       : 0138 Ymca Rd, New Hope, Alabama
+
+--- Missed Example #9 ---
+  S1 entity_id          : S1-973875529
+  S1 business_name      : Shivam Foundation Limited
+  S1 address            : F5, Jumbo Bhairav Apartmen, Plot No 4 & 5, Bank Of Ba, Saidapet, Kanchipuram, Tamil Nadu
+  S1 country            : India
+  True matched ID       : S3-394681327
+  Matched business_name : சிவம் ஃபவுண்டேஷன் லிமிடெட்
+  Matched address       : F5, Saidapet, TN
+
+--- Missed Example #10 ---
+  S1 entity_id          : S1-843379282
+  S1 business_name      : C O & R Acquisition LLC
+  S1 address            : 50 Rothmore Drive, Benwood, WV
+  S1 country            : US
+  True matched ID       : S3-26991844
+  Matched business_name : C O & Acquisition LLC Center
+  Matched address       : 
+
+--- Missed Example #11 ---
+  S1 entity_id          : S1-788858731
+  S1 business_name      : Shiv Consultants Private Limited
+  S1 address            : Karnataka, Mysore, C-9, Yadavagiri, C-10, Yadavagiri Industrial Area Near Joy Ice Cream
+  S1 country            : India
+  True matched ID       : S3-742717976
+  Matched business_name : ಶಿವ್ ಕನ್ಸಲ್ಟೆಂಟ್ಸ್ Private Limited
+  Matched address       : ಕರ್ನಾಟಕ, Yadavagiri, C-10, Yadavagiri Industrial Area Near Joy Ice Cream, Mysore, C-009
+
+--- Missed Example #12 ---
+  S1 entity_id          : S1-316289684
+  S1 business_name      : Valdez & Heldt Inc
+  S1 address            : Olympia, WA, Fl 1, 7417 Lucinda Court
+  S1 country            : US
+  True matched ID       : S2-601210885
+  Matched business_name : Valdez & Héldt Inc
+  Matched address       : 7417 LUCINDA CT, OLYMPIA, WA
+
+--- Missed Example #13 ---
+  S1 entity_id          : S1-597368840
+  S1 business_name      : Ashwini (India) Logistics Pvt Ltd
+  S1 address            : Sf-208 Tower C Time Square Fatehgunj, Vadodara, Gujarat
+  S1 country            : India
+  True matched ID       : S3-890870717
+  Matched business_name : Ashwini (Ihniha) Logistics Pvt Ltd
+  Matched address       : 
+
+--- Missed Example #14 ---
+  S1 entity_id          : S1-885027490
+  S1 business_name      : Lugo, Luther and Mills
+  S1 address            : 14 Colin Drive, Portsmouth City, VA
+  S1 country            : US
+  True matched ID       : S3-263015434
+  Matched business_name : Lug0, Luther and Mills
+  Matched address       : 014 Colin Dr, Porsmouth Township, Virginia
+
+--- Missed Example #15 ---
+  S1 entity_id          : S1-989325747
+  S1 business_name      : Sas & Partners of Bengaluru Private Limited
+  S1 address            : No. 17/N, 18Th Cross, 15Th Main 3Rd Sector, Hsr Layout, Bengaluru, Bangalore, Karnataka
+  S1 country            : India
+  True matched ID       : S3-44620463
+  Matched business_name : Dr Sas & Praoners of Bengaluru Private Limited
+  Matched address       : No 17/N, Bangalore, Bengaluru, ಕರ್ನಾಟಕ
+
+--- Missed Example #16 ---
+  S1 entity_id          : S1-275588951
+  S1 business_name      : Sharanya Solution Private Limited
+  S1 address            : Wadala Rly Station, Mumbai, 5 Floor Grd Plot-251 Tanibai Niwas David S Baretto Road, Mumbai, Maharashtra
+  S1 country            : India
+  True matched ID       : S3-119820111
+  Matched business_name : Fluxsol
+  Matched address       : No 5/1 Floor Grd Plot-251 Tanibai Niwas David S Baretto Road, Wadala Rly Station, Mumbai, महाराष्ट्र
+
+--- Missed Example #17 ---
+  S1 entity_id          : S1-501522529
+  S1 business_name      : Pioneer Constructions Pvt Ltd
+  S1 address            : No 8/2B, Kerala, Alappuzha, Kodiyanthara, Varanad P O, Cherthala, Cherthala
+  S1 country            : India
+  True matched ID       : S3-519647815
+  Matched business_name : പയനിയർ കൺസ്ട്രക്ഷൻസ് പ്രൈവറ്റ് ലിമിറ്റഡ്
+  Matched address       : No 008/2B, Kodiyanthara, Varanad P O, Cherthala, Cherthala, Alappuzha, KL
+
+--- Missed Example #18 ---
+  S1 entity_id          : S1-646479676
+  S1 business_name      : Bombay Global Infra
+  S1 address            : Plot No. 2026 P Sector-7, Sonipat, Sonepat, Haryana
+  S1 country            : India
+  True matched ID       : S2-923800855
+  Matched business_name : बॉम्बे ग्लोबल इंफ्रा
+  Matched address       : PLOT NO. 202 P SECTOR-7, SONIPAT, SONEPAT, Haryana
+
+--- Missed Example #19 ---
+  S1 entity_id          : S1-686775768
+  S1 business_name      : JHI Services
+  S1 address            : A-503, Ncc, Nagarjuna Residency Telecom Nagar, Opp Nasar Boys School, Ga, Chibowli, Hyderabad, Rangareddy, Telangana
+  S1 country            : India
+  True matched ID       : S2-331579448
+  Matched business_name : JHI Center
+  Matched address       : Andhra Pradesh, 70 A-503, NCC, NAGARJUNA RESIDENCY TELECOM NAGAR, OPP NASAR BOYS SCHOOL, GA, CHIBOWLI, HYDERABAD
+
+--- Missed Example #20 ---
+  S1 entity_id          : S1-655167387
+  S1 business_name      : Snb Foundation Private Limited
+  S1 address            : National Youth Computer T, C/O Sudip Barman, Vill-Bu, Sahid Matangini, East Midnapore, West Bengal
+  S1 country            : India
+  True matched ID       : S2-462446858
+  Matched business_name : Smt SNB FOUNDATION LIMITED PRIVATE
+  Matched address       : NATIONAL YOUTH COMPUTER T, C/O SUDIP BARMAN, VILL-BU, SAHID MATANGINI, West Bengal
+
+--- Missed Example #21 ---
+  S1 entity_id          : S1-568571994
+  S1 business_name      : High Projects Limited
+  S1 address            : Village Shekhpur, Jaunpur, Uttar Pradesh
+  S1 country            : India
+  True matched ID       : S3-420940363
+  Matched business_name : highprojects.com
+  Matched address       : #57 Village Shekhpur, Jaunpur, UP
+
+--- Missed Example #22 ---
+  S1 entity_id          : S1-661044770
+  S1 business_name      : Sree Agro
+  S1 address            : Thane, 515 C Wing Kasturi Height, Thane, Bldg No 2 Eden Park Rd, Maharashtra
+  S1 country            : India
+  True matched ID       : S3-810533676
+  Matched business_name : श्री एग्रो
+  Matched address       : 515 C Wing Kasturi Height, Bldg No 2 Eden Park Rd, Thane, Bhayander East, MH
+
+--- Missed Example #23 ---
+  S1 entity_id          : S1-140083019
+  S1 business_name      : Big Software Private Limited
+  S1 address            : Dr No.17-26-90 Pezzonipet, Kopelavari Street, Vijayawada (Urban), Krishna, Andhra Pradesh
+  S1 country            : India
+  True matched ID       : S3-995789938
+  Matched business_name : బిగ్ సాఫ్ట్‌వేర్ ప్రైవేట్ లిమిటెడ్
+  Matched address       : Door No 221 Dr No.17-26-90 Pezzonipet, Kopelavari Street, Vijayawada (Urban), Krishna, AP
+
+--- Missed Example #24 ---
+  S1 entity_id          : S1-379756857
+  S1 business_name      : Variant Exporters Private Limited
+  S1 address            : 24 Ujwal Soc Narendranagar, Nagpur, Maharashtra
+  S1 country            : India
+  True matched ID       : S2-152305990
+  Matched business_name : variantexporters.com
+  Matched address       : 32 UJWAL SOC NARENDRANAGAR, NAGPUR, Maharashtra
+
+--- Missed Example #25 ---
+  S1 entity_id          : S1-121476456
+  S1 business_name      : Built Consultancy Private Limited
+  S1 address            : Telangana, Hyderabad, Survey No75A 76, New No103, 104Aparna Astute, Shaikpet, Asifnagar
+  S1 country            : India
+  True matched ID       : S3-13712266
+  Matched business_name : builtconsultancy.com
+  Matched address       : Door No 75A 76, New No103, 104Aparna Astute, Shaikpet, Asifnagar, Hyderabad, TG
+
+================================================================================
+NOISE PATTERNS & INSIGHTS OBSERVED FROM MISSED MATCHES:
+================================================================================
+1. URL / Domain Names as Business Names:
+   Source 3 frequently substitutes a company website/URL (e.g. 'xyzcorp.com') for the name.
+2. Severe Typographic & OCR/Transliteration Errors:
+   Letters transposed, phonetic spelling changes, or non-Latin script translations.
+3. Missing / Blank Addresses in S2 & S3:
+   When a matching S2/S3 record has no address AND its business name differs by more than legal suffix,
+   name-only or address-only blocks fail to link them.
+4. Street vs Landmark Address Discrepancies:
+   In Indian records, street numbers are often replaced with landmarks (e.g., 'Near SBI Branch').
+5. High Recall of Combined Strategy:
+   The UNION of 4 deterministic strategies captures 88.16% of all GT pairs
+   and 98.17% of entities, dramatically reducing the candidate space
+   from 10.3 million to a manageable set per entity before downstream scoring.
+================================================================================
