@@ -638,6 +638,29 @@ def main():
         cand_pairs_scored = 0
         matches_found = 0
 
+        def flush_pairs():
+            nonlocal cand_pairs_scored, matches_found
+            if not pairs_chunk:
+                return
+            cand_pairs_scored += len(pairs_chunk)
+            feat_matrix = []
+            pair_meta = []
+            for s1_idx, mid, s1_prof, cand_prof, n_blocks in pairs_chunk:
+                f = compute_pairwise_features(s1_prof, cand_prof)
+                f["num_blocks_matched"] = n_blocks
+                row_vec = [f.get(fname, 0.0) for fname in feature_names]
+                feat_matrix.append(row_vec)
+                pair_meta.append((s1_idx, mid))
+
+            X_batch = np.array(feat_matrix, dtype=np.float32)
+            probs = model.predict_proba(X_batch)[:, 1]
+
+            for (s1_idx, mid), prob in zip(pair_meta, probs):
+                if prob >= decision_threshold:
+                    predictions[s1_idx].append((mid, float(prob)))
+                    matches_found += 1
+            pairs_chunk.clear()
+
         for chunk in pd.read_csv(source_path, sep="\t", chunksize=args.chunksize, keep_default_na=False):
             pairs_chunk = []
             for mid, c, name, addr in zip(chunk["entity_id"], chunk["country"], chunk["business_name"], chunk["business_address"]):
@@ -661,26 +684,10 @@ def main():
                 cand_prof = EntityProfile(c, name, addr)
                 for s1_idx, b_codes in matched_s1_blocks.items():
                     pairs_chunk.append((s1_idx, mid, s1_profiles[s1_idx], cand_prof, len(set(b_codes))))
+                    if len(pairs_chunk) >= 50000:
+                        flush_pairs()
 
-            if pairs_chunk:
-                cand_pairs_scored += len(pairs_chunk)
-                # Compute features in batch
-                feat_matrix = []
-                pair_meta = []
-                for s1_idx, mid, s1_prof, cand_prof, n_blocks in pairs_chunk:
-                    f = compute_pairwise_features(s1_prof, cand_prof)
-                    f["num_blocks_matched"] = n_blocks
-                    row_vec = [f.get(fname, 0.0) for fname in feature_names]
-                    feat_matrix.append(row_vec)
-                    pair_meta.append((s1_idx, mid))
-
-                X_batch = np.array(feat_matrix, dtype=np.float32)
-                probs = model.predict_proba(X_batch)[:, 1]
-
-                for (s1_idx, mid), prob in zip(pair_meta, probs):
-                    if prob >= decision_threshold:
-                        predictions[s1_idx].append((mid, prob))
-                        matches_found += 1
+            flush_pairs()
 
             print(
                 f"    [{label}] Scanned {rows_scanned:,} rows | Cands scored: {cand_pairs_scored:,} | Matches: {matches_found:,} ({time.time() - t_src:.1f}s)",
