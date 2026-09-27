@@ -1,0 +1,17 @@
+{
+  "optimal_threshold": 0.72,
+  "macro_f05": 0.93224,
+  "pair_precision": 0.96267,
+  "pair_recall": 0.89536,
+  "singleton_fp_rate": 0.09866,
+  "avg_predictions": 3.1954,
+  "exact_match_rate": 0.6706,
+  "baseline_threshold": 0.4365,
+  "baseline_macro_f05": 0.928,
+  "metric": "Macro F0.5 per Source-1 entity",
+  "search_range": [
+    0.05,
+    0.95
+  ],
+  "sample_size": 10000
+}

@@ -1,0 +1,168 @@
+================================================================================
+AMAZON ML CHALLENGE 2026 — TECHNICAL PIPELINE AUDIT REPORT (PHASE 1)
+================================================================================
+Audit Date: September 2026
+Lead ML Engineer: AntiGravity Agentic System
+Project: Business Entity Resolution Challenge (Amazon ML Challenge 2026)
+
+--------------------------------------------------------------------------------
+EXECUTIVE SUMMARY: WHY THE COMPETITION SCORE WAS 0.356
+--------------------------------------------------------------------------------
+1. Root Cause Analysis:
+   Under severe hackathon deadline pressure (<55 minutes remaining), the execution 
+   switched to `fast_submission_generator.py` to ensure submission completion.
+   While this successfully avoided disqualification and verified format correctness 
+   (PASS on validate_submission.py), its heuristic matching rules bypassed the 
+   trained LightGBM model and flooded the output with false positives:
+   - Total matches written: 11,321,551 matches across 1,732,544 test S1 entities.
+   - Average matches per entity: 6.54 (vs. 3.47 in ground truth).
+   - Entities with 10 matches: 36.20% (vs. 0.03% in ground truth).
+   - Singleton rate: 1.85% (vs. 5.60% in ground truth, meaning ~65,000 singletons 
+     received false positive matches).
+
+2. Competition Metric Mismatch:
+   The official competition metric is Macro F0.5 per Source-1 entity:
+     F0.5 = (1.25 * Precision * Recall) / (0.25 * Precision + Recall)
+   In F0.5, Precision is weighted 4x more heavily than Recall (beta = 0.5).
+   When an entity with 2 true matches is predicted with 10 matches (2 TP, 8 FP),
+   per-entity Precision is 2/10 = 0.20, and per-entity F0.5 collapses from 1.0 to 0.238.
+   This structural false-positive explosion explains the 0.356 leaderboard score.
+
+--------------------------------------------------------------------------------
+DETAILED AUDIT OF THE 15 KEY ARCHITECTURAL QUESTIONS
+--------------------------------------------------------------------------------
+
+1. How candidate pairs are generated:
+   - In 02_blocking_experiment.py: Evaluated 4 blocking strategies (exact name, 
+     2-token prefix, address numeric+alpha, name token+address token).
+   - In 04_generate_training_pairs.py: Built 7 block families (B1 exact, B2 2-tokens, 
+     B3 address tokens, B4 name+address, BA numeric address, BB despaced domain, 
+     BC structural stripped, BD 3-grams prefix/suffix, BE locality, BF cross-field, 
+     BG multilingual).
+   - In fast_submission_generator.py: Used 3 fast blocking keys (exact normalized name, 
+     first 2 tokens, name lead token + address house number).
+   - Finding: The full 7-block family had massive token overlap causing combinatorial 
+     explosion during streaming, while fast_submission_generator was too loose on token 
+     overlap thresholds.
+
+2. Whether candidate generation accidentally excludes France:
+   - Test S1 contains:
+     * India: 809,986 (46.75%)
+     * United States (US): 663,106 (38.27%)
+     * France: 259,452 (14.98%)
+   - Training contains ONLY India (1,213,752) and US (993,069).
+   - Candidate generation uses `c = country.strip().upper()`, so France is NOT 
+     syntactically excluded.
+   - CRITICAL GAP: France entities never appeared in training! The LightGBM model 
+     never learned French address structures (e.g., "Rue", "Boulevard", 5-digit 
+     French postal codes like "75008 Paris"), French corporate suffixes ("SARL", 
+     "SAS", "EURL"), or French accents ("é", "è", "ç", "à").
+
+3. Whether candidates are generated using country correctly:
+   - Yes. Blocking keys prefix the country code (e.g. `INDIA|...`, `US|...`, `FRANCE|...`).
+   - Analysis of train_ground_truth.tsv proves that 100% of true matches are strictly 
+     intra-country. Cross-country leakage is 0.00%.
+
+4. Whether final candidate_pairs.tsv is actually the final blocking set immediately before inference:
+   - In 07_predict_submission.py: `p_candidates[s1_idx].append(mid)` is called before 
+     `pairs_chunk.append(...)` and model inference.
+   - In fast_submission_generator.py: Both candidates and matches were written from 
+     the same heuristic rules.
+   - Requirement: In the optimized pipeline, candidate generation must strictly produce 
+     the deterministic candidate set before LightGBM inference, with 100% containment.
+
+5. How features are calculated:
+   - 34 features extracted per pair in compute_direct_features:
+     * 13 Name features (exact match, lengths, diff, ratio, char sim, Levenshtein sim, 
+       token overlap, Jaccard, containment, first token sim, prefix sim, alphanumeric sim).
+     * 12 Address features (exact match, length diff/ratio, char sim, Levenshtein sim, 
+       token overlap/Jaccard, numeric overlap/Jaccard, house number match, locality overlap/Jaccard).
+     * 1 Country match.
+     * 3 Interaction features (combined 0.65/0.35, harmonic mean, both strong, name strong/addr weak, addr strong/name weak).
+     * 2 Missing address indicators.
+     * 1 num_blocks_matched.
+   - Bottleneck: Pure-Python Levenshtein calculations on millions of pairs cause 
+     execution delays unless candidates are tightly filtered.
+
+6. How missing addresses are handled:
+   - Explicit binary flags `s1_addr_missing` and `cand_addr_missing`.
+   - If both addresses are missing: `addr_exact_match` = 0.0, character similarity = 0.0, 
+     Levenshtein similarity = 0.0. Missing-vs-missing is correctly NOT treated as positive.
+   - Gap: When an address is missing, the model currently penalizes address similarity to 0.0, 
+     which artificially suppresses legitimate matches where address was simply omitted. 
+     A conditional imputation or missing-aware interaction feature is needed.
+
+7. How multilingual / non-Latin names are handled:
+   - Unicode NFKD decomposition is applied, and non-alphanumeric punctuation stripped.
+   - Gap: Indian regional scripts (Devanagari, Tamil, Telugu, etc.) do not align with 
+     English Latin transliterations via character edit distance or exact token match. 
+     Character n-grams and script-type indicators are missing.
+
+8. How aliases / domain names are handled:
+   - Handled via regexes stripping `www.`, `.com`, `.org`, etc., and extracting `formerly:`, 
+     `aka`, `dba`, `trading as`.
+   - Gap: Hyphenated brand names (e.g. `8uildcon-Textile` vs `Buildcon Textile`) and digit/OCR 
+     substitutions (`8` for `B`, `0` for `O`, `1` for `I`/`l`) are not normalized.
+
+9. How multiple matches are handled:
+   - In training ground truth:
+     * Max true matches for any entity: 11
+     * Average true matches: 3.47
+     * 0 matches: 5.60%
+     * 1 match: 5.34%
+     * 2 matches: 16.85%
+     * 3 matches: 24.16%
+     * 4 matches: 21.95%
+     * 5 matches: 14.64%
+     * 6-7 matches: 10.42%
+     * 8-11 matches: 1.05%
+   - Gap: Previous pipeline had no calibrated multi-match logic. Either it kept all 
+     probabilities >= threshold (which can explode if threshold is too low) or hit a 
+     flat cap of 10.
+
+10. How singleton / no-match entities are handled:
+    - 5.60% of S1 entities are singletons (zero matches in S2/S3).
+    - If no candidate exceeds the decision threshold, an empty string `""` is written.
+    - Flaw: In fast_submission_generator, low-threshold heuristic matching reduced singletons 
+      to 1.85%, generating ~65,000 false positive predictions on true singletons.
+
+11. How the threshold is applied:
+    - In 06_train_model.py: Threshold (0.4365) was chosen by optimizing binary pair-level 
+      F1 score on val_features.parquet.
+    - CRITICAL FLAW: Global binary F1 is NOT the competition metric! The competition metric 
+      is Macro F0.5 per Source-1 entity. Because F0.5 penalizes false positives heavily, 
+      the true optimal threshold for Macro F0.5 is significantly higher than 0.4365.
+
+12. Whether there is any hard-coded top-k selection:
+    - In fast_submission_generator.py: Hard-coded cap of 10 matches.
+    - In 07_predict_submission.py: No top-k cap, but multi-block candidates were capped at 15.
+    - Rule: Do not use arbitrary flat top-k. Decision must be driven by threshold and 
+      confidence margins.
+
+13. Whether duplicate candidates are removed:
+    - Yes, `dict.fromkeys(...)` is consistently used to preserve order and eliminate duplicate IDs.
+
+14. Whether S2/S3 candidate IDs can leak across countries:
+    - No. All blocking keys include normalized country prefix, preventing cross-country leakage.
+
+15. Whether test processing differs from validation processing:
+    - CRITICAL DISCREPANCY IDENTIFIED:
+      In Step 6, validation was performed on `val_features.parquet` (which contained only 
+      ~50 negatives per S1 entity from Step 4).
+      During test inference, each S1 entity is compared against the full streaming 
+      corpus of Source 2 and Source 3 (millions of negative candidates).
+      A threshold optimized on a 1:4 positive-to-negative sample suffers extreme precision 
+      degradation when deployed against the full unconstrained negative candidate space.
+
+--------------------------------------------------------------------------------
+ACTION PLAN FOR PHASES 2 THROUGH 17
+--------------------------------------------------------------------------------
+1. Phase 2: Build a proper end-to-end Local Validation Framework that evaluates 
+   full candidate generation + scoring against the exact competition Macro F0.5 metric.
+2. Phase 3: Systematic threshold search specifically optimizing Macro F0.5.
+3. Phases 4-7: Enhance Normalization, Multilingual/French features, Address features, 
+   and Name features.
+4. Phase 8: Mine and train on Hard Negatives.
+5. Phase 9-10: Model experiments (A-E) and dynamic multi-match decision logic.
+6. Phases 11-16: Fast streaming test generation and official validator verification.
+================================================================================
