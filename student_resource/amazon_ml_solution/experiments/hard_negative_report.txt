@@ -1,0 +1,18 @@
+AMAZON ML CHALLENGE 2026: HARD NEGATIVE ANALYSIS REPORT
+=================================================================
+
+Total Training Candidates: 544,993
+True Positives           : 163,979
+Total Negatives          : 381,014
+Identified Hard Negatives: 216,353 (56.78%)
+
+Categories:
+  1. Strong name similarity (>=0.85) with wrong address (<0.35): 2,147
+  2. Strong address similarity (>=0.85) with wrong name (<0.40): 1,181
+  3. Multiblock candidates (>=3 blocking rules matched): 216,261
+
+Hard Negative Learning Strategy:
+  Standard training allows models to separate easy negatives (e.g. completely dissimilar businesses)
+  without learning fine-grained discriminators for identical brand names in different cities
+  or different branch offices at shared commercial plazas. In Model E, hard negatives are assigned
+  2.5x sample weight to enforce strict precision margins.

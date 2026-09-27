@@ -81,10 +81,14 @@ BASELINE_FEATURES = [
 def load_ground_truth_map(gt_path: str):
     print(f"Loading ground truth from {gt_path}...")
     gt_map = collections.defaultdict(set)
-    df_gt = pd.read_csv(gt_path, sep="\t", dtype=str)
-    for s1, tgt in zip(df_gt["source1_entity_id"], df_gt["matched_entity_id"]):
-        if tgt and tgt.strip():
-            gt_map[s1].add(tgt.strip())
+    df_gt = pd.read_csv(gt_path, sep="\t", dtype=str, keep_default_na=False)
+    target_col = "matched_entity_ids" if "matched_entity_ids" in df_gt.columns else "matched_entity_id"
+    for s1, tgt_str in zip(df_gt["source1_entity_id"], df_gt[target_col]):
+        if tgt_str and tgt_str.strip():
+            for m in tgt_str.split(","):
+                m_clean = m.strip(" []'\"")
+                if m_clean:
+                    gt_map[s1].add(m_clean)
     return gt_map
 
 
