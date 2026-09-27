@@ -144,12 +144,14 @@ def clean_text(text: str) -> str:
     """
     Combines Unicode normalization, lowercasing, punctuation stripping (preserving
     non-Latin multilingual Unicode characters), and whitespace normalization.
+    Fast-paths ASCII strings.
     """
     if not text or not isinstance(text, str):
         return ""
-    text = normalize_unicode(text).lower()
-    text = RE_PUNCT_UNICODE.sub(" ", text)
-    return RE_WHITESPACE.sub(" ", text).strip()
+    if not text.isascii():
+        text = unicodedata.normalize("NFKD", text)
+    text = RE_PUNCT_UNICODE.sub(" ", text).lower()
+    return " ".join(text.split())
 
 
 def strip_domain_name(name: str) -> str:
@@ -157,12 +159,16 @@ def strip_domain_name(name: str) -> str:
     Normalizes URLs/domains by stripping protocols and top-level domain extensions.
     Example: 'trinitycatholicchurch.com' -> 'trinitycatholicchurch'
              'www.amazon.in/shop' -> 'amazon'
+    Fast-paths strings without domain indicators.
     """
     if not name or not isinstance(name, str):
         return ""
-    cleaned = RE_URL_PREFIX.sub("", name.strip())
-    cleaned = RE_DOMAIN_SUFFIX.sub("", cleaned)
-    return cleaned
+    if "." in name or "/" in name or "www" in name.lower():
+        cleaned = RE_URL_PREFIX.sub("", name.strip())
+        cleaned = RE_DOMAIN_SUFFIX.sub("", cleaned)
+        return cleaned
+    return name
+
 
 
 def despace_alphanumeric(text: str) -> str:
@@ -549,55 +555,49 @@ def compute_pairwise_features(s1: EntityProfile, cand: EntityProfile) -> dict:
 # 6. Blocking Keys Generation for Candidate Retrieval
 # ==============================================================================
 
-def generate_blocking_keys(profile: EntityProfile) -> dict:
+def quick_blocking_keys(c_clean: str, name: str, addr: str) -> list:
     """
-    Generates deterministic multi-key blocking signatures for fast candidate retrieval:
-      - BLOCK 1: Country + exact normalized business name
-      - BLOCK 2: Country + business name token signature (first 2 tokens)
-      - BLOCK 3: Country + normalized numeric token + alpha address token
-      - BLOCK 4: Country + leading name token + primary address token
-      - BLOCK B: Country + despaced alphanumeric name (catches URLs vs spaced names)
+    Ultra-fast, lightweight blocking key generation for streaming millions of S2/S3 records.
+    Avoids heavy profile/set creation for non-matching records.
     """
-    c = profile.country
-    keys = {}
+    keys = []
+    clean_n = strip_domain_name(name)
+    norm_n = clean_text(clean_n)
+    if norm_n:
+        keys.append(f"{c_clean}|b1|{norm_n}")
+        desp = despace_alphanumeric(clean_n)
+        if len(desp) >= 4:
+            keys.append(f"{c_clean}|bb|{desp}")
 
-    # BLOCK 1: Country + exact normalized name
-    keys["B1"] = [f"{c}|b1|{profile.norm_name}"] if profile.norm_name else []
+    n_toks = norm_n.split()
+    meaningful = extract_meaningful_name_tokens(n_toks)
+    if len(meaningful) >= 2:
+        keys.append(f"{c_clean}|b2|{meaningful[0]}_{meaningful[1]}")
+    elif len(meaningful) == 1 and len(meaningful[0]) >= 3:
+        keys.append(f"{c_clean}|b2|{meaningful[0]}")
 
-    # BLOCK 2: Country + first 2 meaningful name tokens
-    b2 = []
-    mt = profile.meaningful_name_toks
-    if len(mt) >= 2:
-        b2.append(f"{c}|b2|{mt[0]}_{mt[1]}")
-    elif len(mt) == 1 and len(mt[0]) >= 3:
-        b2.append(f"{c}|b2|{mt[0]}")
-    keys["B2"] = b2
-
-    # BLOCK 3: Country + numeric building number + alpha locality/street token
-    b3 = []
-    if profile.numerics and profile.locality_toks:
-        b3.append(f"{c}|b3|{profile.numerics[0]}_{profile.locality_toks[0]}")
-        if len(profile.locality_toks) > 1 and profile.locality_toks[-1] != profile.locality_toks[0]:
-            b3.append(f"{c}|b3|{profile.numerics[0]}_{profile.locality_toks[-1]}")
-    keys["B3"] = b3
-
-    # BLOCK 4: Country + leading name token + primary address token
-    b4 = []
-    if mt:
-        lead = mt[0]
-        if profile.numerics:
-            b4.append(f"{c}|b4|{lead}_{profile.numerics[0]}")
-        if profile.locality_toks:
-            b4.append(f"{c}|b4|{lead}_{profile.locality_toks[0]}")
-    keys["B4"] = b4
-
-    # BLOCK B: Country + despaced alphanumeric name (catches URLs vs spaced names)
-    b_b = []
-    if profile.despaced_name and len(profile.despaced_name) >= 4:
-        b_b.append(f"{c}|bb|{profile.despaced_name}")
-    keys["BB"] = b_b
+    if addr:
+        numerics, locality = extract_address_components(addr)
+        if numerics and locality:
+            keys.append(f"{c_clean}|b3|{numerics[0]}_{locality[0]}")
+            if len(locality) > 1 and locality[-1] != locality[0]:
+                keys.append(f"{c_clean}|b3|{numerics[0]}_{locality[-1]}")
+        if meaningful:
+            lead = meaningful[0]
+            if numerics:
+                keys.append(f"{c_clean}|b4|{lead}_{numerics[0]}")
+            if locality:
+                keys.append(f"{c_clean}|b4|{lead}_{locality[0]}")
 
     return keys
+
+
+def generate_blocking_keys(profile: EntityProfile) -> list:
+    """
+    Generates blocking keys for an EntityProfile.
+    """
+    return quick_blocking_keys(profile.country, profile.raw_name, profile.raw_addr)
+
 
 
 # ==============================================================================
@@ -766,10 +766,9 @@ def main():
 
     for s1_id, prof in s1_profiles.items():
         s1_idx = s1_to_idx[s1_id]
-        keys_dict = generate_blocking_keys(prof)
-        for b_code, b_keys in keys_dict.items():
-            for k in b_keys:
-                s1_index[k].append(s1_idx)
+        keys_list = generate_blocking_keys(prof)
+        for k in keys_list:
+            s1_index[k].append(s1_idx)
 
     print(f"  Indexed {len(s1_index):,} unique blocking keys across 5 blocking strategies.")
 
@@ -789,34 +788,22 @@ def main():
                 if c_clean not in valid_countries:
                     continue
 
-                prof = None  # Lazily created if any key matches
-                cand_keys_dict = None
-
-                # Fast key check
-                # Check Block 1 first
-                norm_n = clean_text(strip_domain_name(name))
-                k1 = f"{c_clean}|b1|{norm_n}" if norm_n else None
+                # Ultra-fast key generation without heavy object creation
+                cand_keys = quick_blocking_keys(c_clean, name, addr)
+                if not cand_keys:
+                    continue
 
                 matched_s1 = collections.defaultdict(int)
-                if k1 and k1 in s1_index:
-                    for s1_idx in s1_index[k1]:
-                        matched_s1[s1_idx] += 3  # Higher weight for exact name match
-
-                # If no Block 1 match or to find additional candidates, generate full keys
-                prof = EntityProfile(c, name, addr)
-                cand_keys_dict = generate_blocking_keys(prof)
-
-                for b_code, b_keys in cand_keys_dict.items():
-                    if b_code == "B1":
-                        continue  # Already checked
-                    weight = 2 if b_code in ("B4", "BB") else 1
-                    for k in b_keys:
-                        if k in s1_index:
-                            for s1_idx in s1_index[k]:
-                                matched_s1[s1_idx] += weight
+                for k in cand_keys:
+                    if k in s1_index:
+                        for s1_idx in s1_index[k]:
+                            matched_s1[s1_idx] += 1
 
                 if not matched_s1:
                     continue
+
+                # Lazily instantiate profile only for matched records
+                prof = EntityProfile(c, name, addr)
 
                 for s1_idx, score in matched_s1.items():
                     is_true = (mid in gt_matches_per_s1[s1_idx])
@@ -827,7 +814,6 @@ def main():
                         if len(cur_negs) < args.max_negatives * 2:
                             cur_negs[mid] = (prof, source_label, score)
                         elif score > 1:
-                            # Replace lower-scoring candidate
                             for ex_mid, (_, _, ex_score) in list(cur_negs.items()):
                                 if ex_score < score:
                                     del cur_negs[ex_mid]
