@@ -301,38 +301,52 @@ def locate_dataset_dir(explicit_path=None):
 
 
 # ==============================================================================
-# 3. Candidate Pairs Generator Core
+# 3. Candidate Pairs Generator Core (Simultaneous Single-Pass Streaming)
 # ==============================================================================
-def generate_pairs_for_entities(
-    s1_entities,
-    s1_to_idx,
-    s1_index,
-    gt_matches_per_s1,
+def generate_pairs_simultaneous(
+    train_s1,
+    train_to_idx,
+    s1_index_train,
+    train_gt_matches,
+    max_train_negatives,
+    val_s1,
+    val_to_idx,
+    s1_index_val,
+    val_gt_matches,
+    max_val_negatives,
     s2_path,
     s3_path,
     chunksize=200000,
-    max_negatives_per_entity=8,
-    is_validation=False,
     seed=42,
 ):
     """
-    Streams S2 and S3 through the S1 inverted index to collect candidate pairs.
+    Streams S2 and S3 ONCE through both train and validation inverted indexes.
     Returns:
-      pairs_list: list of dicts with pair metadata and label (1 or 0).
+      (train_pairs_list, val_pairs_list)
     """
     rng = random.Random(seed)
 
-    positive_cands = collections.defaultdict(dict)
-    negative_cands = collections.defaultdict(dict)
+    train_pos = collections.defaultdict(dict)
+    train_neg = collections.defaultdict(dict)
 
-    valid_countries = set(c.upper() for c, _, _ in s1_entities.values())
+    val_pos = collections.defaultdict(dict)
+    val_neg = collections.defaultdict(dict)
+
+    valid_countries = set()
+    for c, _, _ in train_s1.values():
+        valid_countries.add(c.upper())
+    for c, _, _ in val_s1.values():
+        valid_countries.add(c.upper())
 
     def scan_source(source_path, label):
         t_start = time.time()
-        print(f"  Streaming {label} ({os.path.basename(source_path)})...", flush=True)
+        print(f"\n  [STREAMING] {label} ({os.path.basename(source_path)})...", flush=True)
         rows_scanned = 0
 
         for chunk in pd.read_csv(source_path, sep="\t", chunksize=chunksize, keep_default_na=False):
+            t_chunk_start = time.time()
+            chunk_rows = len(chunk)
+
             for mid, c, name, addr in zip(chunk["entity_id"], chunk["country"], chunk["business_name"], chunk["business_address"]):
                 rows_scanned += 1
                 c_clean = c.strip().upper() if c else "UNKNOWN"
@@ -341,29 +355,22 @@ def generate_pairs_for_entities(
 
                 keys_dict = generate_all_blocking_keys(c, name, addr)
 
-                matched_s1_blocks = collections.defaultdict(list)
+                # --- 1. Check Train Index ---
+                matched_train_blocks = collections.defaultdict(list)
                 for b_code, b_keys in keys_dict.items():
                     for k in b_keys:
-                        if k in s1_index:
-                            for s1_idx in s1_index[k]:
-                                matched_s1_blocks[s1_idx].append(b_code)
+                        if k in s1_index_train:
+                            for s1_idx in s1_index_train[k]:
+                                matched_train_blocks[s1_idx].append(b_code)
 
-                if not matched_s1_blocks:
-                    continue
-
-                for s1_idx, b_codes in matched_s1_blocks.items():
-                    blocks_unique = tuple(sorted(set(b_codes)))
-                    is_true_match = (mid in gt_matches_per_s1[s1_idx])
-
-                    if is_true_match:
-                        positive_cands[s1_idx][mid] = (mid, label, c, name, addr, blocks_unique)
-                    else:
-                        cur_negs = negative_cands[s1_idx]
-                        if is_validation:
-                            if len(cur_negs) < 50:
-                                cur_negs[mid] = (mid, label, c, name, addr, blocks_unique)
+                if matched_train_blocks:
+                    for s1_idx, b_codes in matched_train_blocks.items():
+                        blocks_unique = tuple(sorted(set(b_codes)))
+                        if mid in train_gt_matches[s1_idx]:
+                            train_pos[s1_idx][mid] = (mid, label, c, name, addr, blocks_unique)
                         else:
-                            if len(cur_negs) < max_negatives_per_entity * 3:
+                            cur_negs = train_neg[s1_idx]
+                            if len(cur_negs) < max_train_negatives * 3:
                                 cur_negs[mid] = (mid, label, c, name, addr, blocks_unique)
                             elif len(blocks_unique) > 1:
                                 for existing_mid, item in list(cur_negs.items()):
@@ -372,21 +379,45 @@ def generate_pairs_for_entities(
                                         cur_negs[mid] = (mid, label, c, name, addr, blocks_unique)
                                         break
 
-        print(f"  Finished {label}: {rows_scanned:,} rows scanned in {time.time() - t_start:.2f}s.", flush=True)
+                # --- 2. Check Validation Index ---
+                matched_val_blocks = collections.defaultdict(list)
+                for b_code, b_keys in keys_dict.items():
+                    for k in b_keys:
+                        if k in s1_index_val:
+                            for s1_idx in s1_index_val[k]:
+                                matched_val_blocks[s1_idx].append(b_code)
+
+                if matched_val_blocks:
+                    for s1_idx, b_codes in matched_val_blocks.items():
+                        blocks_unique = tuple(sorted(set(b_codes)))
+                        if mid in val_gt_matches[s1_idx]:
+                            val_pos[s1_idx][mid] = (mid, label, c, name, addr, blocks_unique)
+                        else:
+                            cur_negs = val_neg[s1_idx]
+                            if len(cur_negs) < max_val_negatives:
+                                cur_negs[mid] = (mid, label, c, name, addr, blocks_unique)
+
+            elapsed_total = time.time() - t_start
+            n_t_pos = sum(len(d) for d in train_pos.values())
+            n_v_pos = sum(len(d) for d in val_pos.values())
+            print(
+                f"    [{label}] Scanned {rows_scanned:,} rows ({elapsed_total:.1f}s) "
+                f"| Train pos: {n_t_pos:,} | Val pos: {n_v_pos:,}",
+                flush=True
+            )
+
+        print(f"  Finished {label}: {rows_scanned:,} rows scanned in {time.time() - t_start:.2f}s.\n", flush=True)
 
     scan_source(s2_path, "Source 2")
     scan_source(s3_path, "Source 3")
 
-    pairs_list = []
-    total_pos = 0
-    total_neg = 0
-
-    for s1_id, (s1_c, s1_name, s1_addr) in s1_entities.items():
-        s1_idx = s1_to_idx[s1_id]
-
-        # 1. Add all positive candidates
-        for mid, (target_id, target_src, target_c, target_name, target_addr, b_tuple) in positive_cands[s1_idx].items():
-            pairs_list.append({
+    # Assemble Train Pairs
+    print("  Assembling training pairs...", flush=True)
+    train_pairs = []
+    for s1_id, (s1_c, s1_name, s1_addr) in train_s1.items():
+        s1_idx = train_to_idx[s1_id]
+        for mid, (target_id, target_src, target_c, target_name, target_addr, b_tuple) in train_pos[s1_idx].items():
+            train_pairs.append({
                 "source1_entity_id": s1_id,
                 "target_entity_id": target_id,
                 "target_source": target_src,
@@ -400,19 +431,11 @@ def generate_pairs_for_entities(
                 "num_blocks_matched": len(b_tuple),
                 "label": 1,
             })
-            total_pos += 1
-
-        # 2. Add sampled hard negatives
-        neg_items = list(negative_cands[s1_idx].values())
-        if is_validation:
-            selected_negs = neg_items
-        else:
-            neg_items.sort(key=lambda x: len(x[5]), reverse=True)
-            k = max_negatives_per_entity if positive_cands[s1_idx] else (max_negatives_per_entity // 2)
-            selected_negs = neg_items[:k]
-
-        for target_id, target_src, target_c, target_name, target_addr, b_tuple in selected_negs:
-            pairs_list.append({
+        neg_items = list(train_neg[s1_idx].values())
+        neg_items.sort(key=lambda x: len(x[5]), reverse=True)
+        k = max_train_negatives if train_pos[s1_idx] else (max_train_negatives // 2)
+        for target_id, target_src, target_c, target_name, target_addr, b_tuple in neg_items[:k]:
+            train_pairs.append({
                 "source1_entity_id": s1_id,
                 "target_entity_id": target_id,
                 "target_source": target_src,
@@ -426,10 +449,46 @@ def generate_pairs_for_entities(
                 "num_blocks_matched": len(b_tuple),
                 "label": 0,
             })
-            total_neg += 1
 
-    print(f"  Summary: {total_pos:,} positive pairs (label=1), {total_neg:,} negative pairs (label=0).", flush=True)
-    return pairs_list
+    # Assemble Validation Pairs
+    print("  Assembling validation pairs...", flush=True)
+    val_pairs = []
+    for s1_id, (s1_c, s1_name, s1_addr) in val_s1.items():
+        s1_idx = val_to_idx[s1_id]
+        for mid, (target_id, target_src, target_c, target_name, target_addr, b_tuple) in val_pos[s1_idx].items():
+            val_pairs.append({
+                "source1_entity_id": s1_id,
+                "target_entity_id": target_id,
+                "target_source": target_src,
+                "s1_business_name": s1_name,
+                "s1_business_address": s1_addr,
+                "s1_country": s1_c,
+                "target_business_name": target_name,
+                "target_business_address": target_addr,
+                "target_country": target_c,
+                "matched_by_blocks": ",".join(b_tuple),
+                "num_blocks_matched": len(b_tuple),
+                "label": 1,
+            })
+        neg_items = list(val_neg[s1_idx].values())
+        neg_items.sort(key=lambda x: len(x[5]), reverse=True)
+        for target_id, target_src, target_c, target_name, target_addr, b_tuple in neg_items[:max_val_negatives]:
+            val_pairs.append({
+                "source1_entity_id": s1_id,
+                "target_entity_id": target_id,
+                "target_source": target_src,
+                "s1_business_name": s1_name,
+                "s1_business_address": s1_addr,
+                "s1_country": s1_c,
+                "target_business_name": target_name,
+                "target_business_address": target_addr,
+                "target_country": target_c,
+                "matched_by_blocks": ",".join(b_tuple),
+                "num_blocks_matched": len(b_tuple),
+                "label": 0,
+            })
+
+    return train_pairs, val_pairs
 
 
 def main():
@@ -459,7 +518,7 @@ def main():
     gt_path = os.path.join(train_dir, "train_ground_truth.tsv")
 
     print("=" * 80)
-    print("AMAZON ML CHALLENGE 2026 — GENERATE TRAINING & VALIDATION PAIRS")
+    print("AMAZON ML CHALLENGE 2026 — GENERATE TRAINING & VALIDATION PAIRS (STEP 4)")
     print("=" * 80)
     print(f"Dataset directory     : {dataset_dir}")
     print(f"Output directory      : {output_dir}")
@@ -533,11 +592,10 @@ def main():
     total_val_gt = sum(len(s) for s in val_gt_matches.values())
     print(f"  Ground truth loaded: {total_train_gt:,} train matches, {total_val_gt:,} val matches in {time.time() - t0:.2f}s.")
 
-    # Step 3: Build Combined Inverted Index for Train Entities
-    print("\n[Step 3/4] Building inverted blocking index for training entities...")
+    # Step 3: Build Combined Inverted Indexes
+    print("\n[Step 3/4] Building inverted blocking indexes...")
     t0 = time.time()
     s1_index_train = collections.defaultdict(list)
-
     for s1_id, (c, name, addr) in train_s1.items():
         s1_idx = train_to_idx[s1_id]
         keys_dict = generate_all_blocking_keys(c, name, addr)
@@ -545,48 +603,7 @@ def main():
             for k in b_keys:
                 s1_index_train[k].append(s1_idx)
 
-    MAX_NGRAM_POSTINGS = 250
-    pruned = 0
-    for k in list(s1_index_train.keys()):
-        if "|bd|" in k and len(s1_index_train[k]) > MAX_NGRAM_POSTINGS:
-            del s1_index_train[k]
-            pruned += 1
-    if pruned:
-        print(f"  Pruned {pruned:,} unselective n-gram keys (> {MAX_NGRAM_POSTINGS} postings).")
-
-    print(f"  Train inverted index has {len(s1_index_train):,} unique keys built in {time.time() - t0:.2f}s.")
-
-    print("\n  Generating training candidate pairs (streaming S2 & S3)...")
-    train_pairs = generate_pairs_for_entities(
-        s1_entities=train_s1,
-        s1_to_idx=train_to_idx,
-        s1_index=s1_index_train,
-        gt_matches_per_s1=train_gt_matches,
-        s2_path=s2_path,
-        s3_path=s3_path,
-        chunksize=args.chunksize,
-        max_negatives_per_entity=args.max_negatives,
-        is_validation=False,
-        seed=args.seed,
-    )
-
-    del s1_index_train
-    gc.collect()
-
-    train_out_path = os.path.join(output_dir, "train_pairs.tsv")
-    print(f"  Saving {len(train_pairs):,} train pairs to {train_out_path}...")
-    df_train = pd.DataFrame(train_pairs)
-    df_train.to_csv(train_out_path, sep="\t", index=False)
-    del train_pairs
-    del df_train
-    gc.collect()
-    print("  Train pairs saved successfully.")
-
-    # Step 4: Build Inverted Index for Validation Entities & Generate Val Pairs
-    print("\n[Step 4/4] Building inverted blocking index for validation entities...")
-    t0 = time.time()
     s1_index_val = collections.defaultdict(list)
-
     for s1_id, (c, name, addr) in val_s1.items():
         s1_idx = val_to_idx[s1_id]
         keys_dict = generate_all_blocking_keys(c, name, addr)
@@ -594,31 +611,54 @@ def main():
             for k in b_keys:
                 s1_index_val[k].append(s1_idx)
 
-    pruned_val = 0
+    MAX_NGRAM_POSTINGS = 250
+    pruned_t = 0
+    for k in list(s1_index_train.keys()):
+        if "|bd|" in k and len(s1_index_train[k]) > MAX_NGRAM_POSTINGS:
+            del s1_index_train[k]
+            pruned_t += 1
+    pruned_v = 0
     for k in list(s1_index_val.keys()):
         if "|bd|" in k and len(s1_index_val[k]) > MAX_NGRAM_POSTINGS:
             del s1_index_val[k]
-            pruned_val += 1
-    if pruned_val:
-        print(f"  Pruned {pruned_val:,} unselective n-gram keys for validation index.")
+            pruned_v += 1
 
-    print(f"  Validation inverted index has {len(s1_index_val):,} unique keys built in {time.time() - t0:.2f}s.")
+    print(
+        f"  Indexes built in {time.time() - t0:.2f}s: "
+        f"Train={len(s1_index_train):,} keys (pruned {pruned_t:,}), "
+        f"Val={len(s1_index_val):,} keys (pruned {pruned_v:,})."
+    )
 
-    print("\n  Generating validation candidate pairs (streaming S2 & S3)...")
-    val_pairs = generate_pairs_for_entities(
-        s1_entities=val_s1,
-        s1_to_idx=val_to_idx,
-        s1_index=s1_index_val,
-        gt_matches_per_s1=val_gt_matches,
+    # Step 4: Stream S2 & S3 in a Single Pass
+    print("\n[Step 4/4] Generating pairs via single-pass streaming of S2 and S3...")
+    train_pairs, val_pairs = generate_pairs_simultaneous(
+        train_s1=train_s1,
+        train_to_idx=train_to_idx,
+        s1_index_train=s1_index_train,
+        train_gt_matches=train_gt_matches,
+        max_train_negatives=args.max_negatives,
+        val_s1=val_s1,
+        val_to_idx=val_to_idx,
+        s1_index_val=s1_index_val,
+        val_gt_matches=val_gt_matches,
+        max_val_negatives=50,
         s2_path=s2_path,
         s3_path=s3_path,
         chunksize=args.chunksize,
-        max_negatives_per_entity=50,
-        is_validation=True,
         seed=args.seed,
     )
 
+    del s1_index_train
     del s1_index_val
+    gc.collect()
+
+    # Save to disk
+    train_out_path = os.path.join(output_dir, "train_pairs.tsv")
+    print(f"\n  Saving {len(train_pairs):,} train pairs to {train_out_path}...")
+    df_train = pd.DataFrame(train_pairs)
+    df_train.to_csv(train_out_path, sep="\t", index=False)
+    del train_pairs
+    del df_train
     gc.collect()
 
     val_out_path = os.path.join(output_dir, "val_pairs.tsv")
@@ -628,7 +668,18 @@ def main():
     del val_pairs
     del df_val
     gc.collect()
-    print("  Validation pairs saved successfully.")
+
+    # Mirror to secondary output directory if applicable
+    alt_output_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "amazon_ml_solution", "output"))
+    if os.path.isdir(os.path.dirname(alt_output_dir)) and alt_output_dir != output_dir:
+        import shutil
+        os.makedirs(alt_output_dir, exist_ok=True)
+        try:
+            shutil.copy2(train_out_path, os.path.join(alt_output_dir, "train_pairs.tsv"))
+            shutil.copy2(val_out_path, os.path.join(alt_output_dir, "val_pairs.tsv"))
+            print(f"  Mirrored pair files to {alt_output_dir}")
+        except Exception as e:
+            pass
 
     print("\n" + "=" * 80)
     print("STEP 4 COMPLETED SUCCESSFULLY!")
@@ -641,3 +692,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
