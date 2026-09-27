@@ -11,7 +11,13 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from evaluate_local_validation import compute_comprehensive_metrics
-from model_experiments_v2 import load_ground_truth_map
+from model_experiments_v2 import (
+    load_ground_truth_map,
+    BASELINE_FEATURES,
+    NAME_V2_ADDITIONS,
+    ADDR_V2_ADDITIONS,
+    MULTILINGUAL_V2_ADDITIONS
+)
 
 out_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "output")
 val_features_path = os.path.join(out_dir, "val_features_v2.parquet")
@@ -24,8 +30,7 @@ model = joblib.load(model_path)
 gt_map = load_ground_truth_map(gt_path)
 all_s1_ids = sorted(list(set(df_val["source1_entity_id"].unique())))
 
-meta_cols = {"source1_entity_id", "target_entity_id", "target_source", "matched_by_blocks", "num_blocks_matched", "label"}
-feat_cols = [c for c in df_val.columns if c not in meta_cols]
+feat_cols = BASELINE_FEATURES + NAME_V2_ADDITIONS + ADDR_V2_ADDITIONS + MULTILINGUAL_V2_ADDITIONS
 
 print(f"Predicting probabilities across {len(df_val):,} pairs...")
 probs = model.predict_proba(df_val[feat_cols].values)[:, 1]
