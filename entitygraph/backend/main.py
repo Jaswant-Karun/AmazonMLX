@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """
 EntityGraph: FastAPI Backend Application
-Powers multilingual entity search, landmark extraction, and interactive knowledge graphs.
+Multilingual entity search, explainable matching evidence,
+conflict radar, identity passports, and human-in-the-loop review queues.
 """
 
 import sys
 import os
 from typing import Optional, List
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -24,14 +26,16 @@ from search_engine import (
     get_entity_by_id, 
     get_real_platform_stats, 
     get_real_demo_queries,
+    get_human_review_queue,
+    submit_review_decision,
     get_db_connection
 )
 from graph_engine import build_entity_graph
 
 app = FastAPI(
     title="EntityGraph API",
-    description="Multilingual Business Entity Resolution & Knowledge Graph Search Platform",
-    version="2.0.0"
+    description="Explainable Multilingual Business Identity Resolution Platform",
+    version="2.1.0"
 )
 
 # Enable CORS for local Next.js / Vite frontends
@@ -44,16 +48,23 @@ app.add_middleware(
 )
 
 
+class ReviewActionRequest(BaseModel):
+    canonical_id: str
+    decision: str  # CONFIRMED | SEPARATED | MERGED | REJECTED
+
+
 @app.get("/")
 def root():
     return {
         "service": "EntityGraph API",
-        "version": "2.0.0",
-        "description": "Real-World Business Discovery & Entity Resolution (100,000 Real Entities, 522,219 Source Links)",
+        "version": "2.1.0",
+        "description": "Explainable Business Identity Resolution & Intelligence",
         "endpoints": {
             "search": "/api/search?q=...&country=...",
             "entity_details": "/api/entity/{id}",
             "entity_graph": "/api/graph/{id}",
+            "passport": "/api/passport/{id}",
+            "review_queue": "/api/review-queue",
             "demo_queries": "/api/demo-queries",
             "stats": "/api/stats"
         }
@@ -75,7 +86,8 @@ def health_check():
         "real_entities_indexed": total_e,
         "multi_source_links": total_s,
         "search_engine": "SQLite FTS5 + BM25 Lexical-Spatial Reranker",
-        "model": "LightGBM Model D (46 features) + Dynamic Agreement"
+        "model": "LightGBM Model D (46 features) + Dynamic Agreement",
+        "competition_submission_score": "0.356 Macro F0.5"
     }
 
 
@@ -104,6 +116,26 @@ def get_graph(canonical_id: str):
     if not graph:
         raise HTTPException(status_code=404, detail=f"Entity graph for '{canonical_id}' not found")
     return graph
+
+
+@app.get("/api/passport/{canonical_id}")
+def get_passport(canonical_id: str):
+    entity = get_entity_by_id(canonical_id)
+    if not entity:
+        raise HTTPException(status_code=404, detail=f"Entity '{canonical_id}' not found")
+    return entity.get("identity_passport")
+
+
+@app.get("/api/review-queue")
+def get_review_queue(limit: int = Query(15, ge=1, le=50)):
+    """Returns human-in-the-loop audit queue containing borderline or conflict entities."""
+    return get_human_review_queue(limit=limit)
+
+
+@app.post("/api/review-action")
+def review_action(action: ReviewActionRequest):
+    """Submits a human decision: CONFIRMED, SEPARATED, MERGED, REJECTED."""
+    return submit_review_decision(action.canonical_id, action.decision)
 
 
 @app.get("/api/demo-queries")
