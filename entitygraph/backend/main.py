@@ -2,12 +2,13 @@
 """
 EntityGraph: FastAPI Backend Application
 Multilingual entity search, explainable matching evidence,
-conflict radar, identity passports, and human-in-the-loop review queues.
+conflict radar, identity passports, batch enterprise resolution,
+and human-in-the-loop review queues.
 """
 
 import sys
 import os
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from fastapi import FastAPI, Query, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -28,14 +29,17 @@ from search_engine import (
     get_real_demo_queries,
     get_human_review_queue,
     submit_review_decision,
+    get_audit_logs,
+    resolve_batch_records,
+    get_preloaded_vendor_batch,
     get_db_connection
 )
 from graph_engine import build_entity_graph
 
 app = FastAPI(
     title="EntityGraph API",
-    description="Explainable Multilingual Business Identity Resolution Platform",
-    version="2.1.0"
+    description="Enterprise Business Identity Resolution & Intelligence Platform",
+    version="2.2.0"
 )
 
 # Enable CORS for local Next.js / Vite frontends
@@ -51,21 +55,29 @@ app.add_middleware(
 class ReviewActionRequest(BaseModel):
     canonical_id: str
     decision: str  # CONFIRMED | SEPARATED | MERGED | REJECTED
+    reviewer: Optional[str] = "Admin Auditor"
+    reason: Optional[str] = ""
+
+
+class BatchResolveRequest(BaseModel):
+    records: List[Dict[str, Any]]
 
 
 @app.get("/")
 def root():
     return {
         "service": "EntityGraph API",
-        "version": "2.1.0",
-        "description": "Explainable Business Identity Resolution & Intelligence",
+        "version": "2.2.0",
+        "description": "Enterprise Business Identity Resolution & Intelligence",
         "endpoints": {
             "search": "/api/search?q=...&country=...",
             "entity_details": "/api/entity/{id}",
             "entity_graph": "/api/graph/{id}",
             "passport": "/api/passport/{id}",
             "review_queue": "/api/review-queue",
-            "demo_queries": "/api/demo-queries",
+            "audit_logs": "/api/audit-logs",
+            "batch_resolve": "/api/batch-resolve",
+            "batch_sample": "/api/batch-sample",
             "stats": "/api/stats"
         }
     }
@@ -135,7 +147,27 @@ def get_review_queue(limit: int = Query(15, ge=1, le=50)):
 @app.post("/api/review-action")
 def review_action(action: ReviewActionRequest):
     """Submits a human decision: CONFIRMED, SEPARATED, MERGED, REJECTED."""
-    return submit_review_decision(action.canonical_id, action.decision)
+    return submit_review_decision(action.canonical_id, action.decision, action.reviewer, action.reason)
+
+
+@app.get("/api/audit-logs")
+def get_audit_trail(limit: int = Query(20, ge=1, le=100)):
+    """Returns the immutable human review audit log trail."""
+    return get_audit_logs(limit=limit)
+
+
+@app.post("/api/batch-resolve")
+def batch_resolve(req: BatchResolveRequest):
+    """Resolves an array of unstructured messy vendor/customer records into Golden Profiles."""
+    if not req.records:
+        raise HTTPException(status_code=400, detail="Records array cannot be empty")
+    return resolve_batch_records(req.records)
+
+
+@app.get("/api/batch-sample")
+def get_sample_batch():
+    """Returns realistic preloaded sample messy vendor records for 1-click batch resolution."""
+    return get_preloaded_vendor_batch()
 
 
 @app.get("/api/demo-queries")

@@ -4,6 +4,8 @@ import InteractiveGraph from './components/InteractiveGraph';
 import InteractiveMap from './components/InteractiveMap';
 import EntityDetailModal from './components/EntityDetailModal';
 import HumanReviewQueue from './components/HumanReviewQueue';
+import BatchResolver from './components/BatchResolver';
+import DeveloperConsole from './components/DeveloperConsole';
 import { 
   Search, Sparkles, MapPin, Building2, ShieldCheck, Layers, 
   ArrowRight, Compass, RefreshCw, Star, Tag, Award, Globe, Database,
@@ -599,7 +601,17 @@ export default function App() {
           </div>
         )}
 
-        {/* VIEW 2: HUMAN REVIEW QUEUE & CONFLICT RADAR */}
+        {/* VIEW 2: BATCH RESOLUTION & GOLDEN MASTER INGESTION */}
+        {viewMode === 'batch' && (
+          <BatchResolver onOpenEntityDetails={openEntityModal} />
+        )}
+
+        {/* VIEW 3: DEVELOPER API CONSOLE */}
+        {viewMode === 'dev_console' && (
+          <DeveloperConsole />
+        )}
+
+        {/* VIEW 4: HUMAN REVIEW QUEUE & CONFLICT RADAR */}
         {viewMode === 'review_queue' && (
           <HumanReviewQueue 
             onSelectEntity={handleSelectEntity}

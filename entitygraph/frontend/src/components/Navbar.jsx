@@ -1,5 +1,5 @@
 import React from 'react';
-import { Network, Sparkles, ShieldCheck, Database, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Network, Sparkles, ShieldCheck, Database, AlertTriangle, CheckCircle2, FileSpreadsheet, Code2 } from 'lucide-react';
 
 export default function Navbar({ onReset, stats, activeView, onSelectView }) {
   const compScore = stats?.competition_submission_score || 0.356;
@@ -42,7 +42,7 @@ export default function Navbar({ onReset, stats, activeView, onSelectView }) {
             </span>
           </div>
           <div style={{ fontSize: '0.74rem', color: '#94a3b8' }}>
-            Multilingual Resolution • Conflict Radar • Explainable Evidence
+            Multilingual Resolution • Conflict Radar • Batch Processing • Explainable Evidence
           </div>
         </div>
       </div>
@@ -58,10 +58,12 @@ export default function Navbar({ onReset, stats, activeView, onSelectView }) {
           border: '1px solid rgba(255,255,255,0.08)'
         }}>
           {[
-            { id: 'workspace', label: '🏢 Identity Workspace' },
-            { id: 'review_queue', label: '⚠️ Review Queue & Conflicts' },
-            { id: 'graph', label: '🕸️ Semantic Graph' },
-            { id: 'map', label: '📍 Explore & Navigate' }
+            { id: 'workspace', label: '🏢 Workspace' },
+            { id: 'batch', label: '📥 Batch CSV' },
+            { id: 'review_queue', label: '⚠️ Review Queue' },
+            { id: 'graph', label: '🕸️ Graph' },
+            { id: 'dev_console', label: '💻 API Console' },
+            { id: 'map', label: '📍 Map (GPS)' }
           ].map(tab => (
             <button
               key={tab.id}
@@ -71,7 +73,7 @@ export default function Navbar({ onReset, stats, activeView, onSelectView }) {
                 color: activeView === tab.id ? '#34d399' : '#94a3b8',
                 border: activeView === tab.id ? '1px solid #10b981' : '1px solid transparent',
                 borderRadius: '8px',
-                padding: '6px 14px',
+                padding: '6px 12px',
                 fontSize: '0.78rem',
                 fontWeight: 700,
                 cursor: 'pointer',
@@ -101,11 +103,11 @@ export default function Navbar({ onReset, stats, activeView, onSelectView }) {
           </span>
           <span style={{ color: 'var(--border-subtle)' }}>|</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#818cf8', fontWeight: 600 }}>
-            <Database size={14} /> 100k Entities (522k Links)
+            <Database size={14} /> 100k Entities
           </span>
           <span style={{ color: 'var(--border-subtle)' }}>|</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#fbbf24', fontWeight: 600 }}>
-            <AlertTriangle size={14} /> 1,284 Conflicts Flagged
+            <AlertTriangle size={14} /> 1,284 Conflicts
           </span>
         </div>
 
