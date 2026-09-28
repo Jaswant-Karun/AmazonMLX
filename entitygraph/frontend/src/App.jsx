@@ -36,8 +36,8 @@ export default function App() {
       .then(data => setPlatformStats(data))
       .catch(e => console.error("Could not load stats:", e));
 
-    // Pre-populate with a rich default search
-    handleSearch("near PSG college tea shop", "India");
+    // Pre-populate with a real dataset search
+    handleSearch("Jamnagar shop om shoping", "India");
   }, []);
 
   const handleSearch = async (queryText = searchQuery, country = selectedCountry) => {
@@ -97,7 +97,7 @@ export default function App() {
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Top Navigation */}
       <Navbar 
-        onReset={() => handleSearch("near PSG college tea shop", "India")} 
+        onReset={() => handleSearch("Jamnagar shop om shoping", "India")} 
         stats={platformStats}
       />
 

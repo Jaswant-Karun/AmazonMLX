@@ -19,7 +19,13 @@ if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
 from nlp_parser import parse_multilingual_query
-from search_engine import search_canonical_entities, get_entity_by_id, CURATED_ENTITY_CLUSTERS
+from search_engine import (
+    search_canonical_entities, 
+    get_entity_by_id, 
+    get_real_platform_stats, 
+    get_real_demo_queries,
+    get_db_connection
+)
 from graph_engine import build_entity_graph
 
 app = FastAPI(
@@ -43,7 +49,7 @@ def root():
     return {
         "service": "EntityGraph API",
         "version": "2.0.0",
-        "description": "Intelligent Global Business Discovery & Entity Resolution",
+        "description": "Real-World Business Discovery & Entity Resolution (100,000 Real Entities, 522,219 Source Links)",
         "endpoints": {
             "search": "/api/search?q=...&country=...",
             "entity_details": "/api/entity/{id}",
@@ -56,9 +62,19 @@ def root():
 
 @app.get("/api/health")
 def health_check():
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT count(*) FROM entities;")
+    total_e = c.fetchone()[0]
+    c.execute("SELECT count(*) FROM source_records;")
+    total_s = c.fetchone()[0]
+    conn.close()
+
     return {
         "status": "healthy",
-        "entities_indexed": len(CURATED_ENTITY_CLUSTERS),
+        "real_entities_indexed": total_e,
+        "multi_source_links": total_s,
+        "search_engine": "SQLite FTS5 + BM25 Lexical-Spatial Reranker",
         "model": "LightGBM Model D (46 features) + Dynamic Agreement"
     }
 
@@ -92,78 +108,12 @@ def get_graph(canonical_id: str):
 
 @app.get("/api/demo-queries")
 def get_demo_queries():
-    return [
-        {
-            "id": "q1",
-            "language": "English",
-            "flag": "🇮🇳",
-            "query": "near PSG college tea shop",
-            "description": "Landmark extraction ('PSG college') + Category ('tea shop')",
-            "target_entity": "PSG Tech Canteen & Tea Corner",
-            "canonical_id": "CANON-IN-00101"
-        },
-        {
-            "id": "q2",
-            "language": "Tamil (தமிழ்)",
-            "flag": "🇮🇳",
-            "query": "கல்லூரி பக்கத்துல நல்ல சாப்பாடு",
-            "description": "Regional script search ('கல்லூரி' -> college, 'நல்ல சாப்பாடு' -> quality meals)",
-            "target_entity": "Anandhas Pure Veg Restaurant",
-            "canonical_id": "CANON-IN-00102"
-        },
-        {
-            "id": "q3",
-            "language": "English (Typo)",
-            "flag": "🇮🇳",
-            "query": "Shri medicals near bus stand",
-            "description": "Fuzzy matching ('Shree' vs 'Shri') + landmark alignment ('bus stand')",
-            "target_entity": "Shri Medicals & Healthcare",
-            "canonical_id": "CANON-IN-00103"
-        },
-        {
-            "id": "q4",
-            "language": "English (Colloquial)",
-            "flag": "🇮🇳",
-            "query": "shop opposite kpr college",
-            "description": "Unstructured search resolving to physical institution",
-            "target_entity": "KPR Fast Food & Mess",
-            "canonical_id": "CANON-IN-00104"
-        },
-        {
-            "id": "q5",
-            "language": "French (Français)",
-            "flag": "🇫🇷",
-            "query": "boulangerie rue de la paix",
-            "description": "Zero-shot European address resolution (Paris, France)",
-            "target_entity": "Boulangerie Traditionnelle de la Paix",
-            "canonical_id": "CANON-FR-00201"
-        },
-        {
-            "id": "q6",
-            "language": "English (US)",
-            "flag": "🇺🇸",
-            "query": "jarlan bold llc suite 4b",
-            "description": "US corporate name resolution with OCR repair ('BHOCLD' -> 'Bold')",
-            "target_entity": "Jarlan Bold Technology Solutions",
-            "canonical_id": "CANON-US-00301"
-        }
-    ]
+    return get_real_demo_queries()
 
 
 @app.get("/api/stats")
 def get_stats():
-    return {
-        "platform_name": "EntityGraph",
-        "total_records_processed": "2,206,821 Source Records",
-        "canonical_entities_formed": "1,732,544 Golden Entities",
-        "precision_macro_f05": 0.95215,
-        "pairwise_precision": "98.38%",
-        "singleton_fp_rate": "3.85%",
-        "supported_languages": ["English", "Tamil (தமிழ்)", "Hindi (हिन्दी)", "French (Français)"],
-        "model_architecture": "LightGBM Model D (46 Pairwise Features)",
-        "decision_rule": "Dual-Threshold Dynamic Agreement Rule (T_high=0.75, T_med=0.58)",
-        "average_query_latency_ms": 14.2
-    }
+    return get_real_platform_stats()
 
 
 if __name__ == "__main__":

@@ -10,6 +10,9 @@ dataset/
 *.parquet
 *.feather
 *.h5
+*.db
+*.sqlite
+*.sqlite3
 
 # --- Model Checkpoints & Large Binaries ---
 *.pkl

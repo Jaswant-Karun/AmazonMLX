@@ -199,3 +199,43 @@ h1, h2, h3, h4, h5, h6 {
   background: rgba(255, 255, 255, 0.10);
   border-color: rgba(255, 255, 255, 0.2);
 }
+
+/* ==============================================================================
+   Leaflet Dark Custom Styles
+   ============================================================================== */
+.leaflet-container {
+  font-family: inherit !important;
+  background: #080b12 !important;
+}
+
+.dark-leaflet-popup .leaflet-popup-content-wrapper {
+  background: rgba(15, 23, 42, 0.95) !important;
+  backdrop-filter: blur(14px) !important;
+  border: 1px solid rgba(99, 102, 241, 0.45) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.75) !important;
+  color: #f8fafc !important;
+  padding: 4px 6px !important;
+}
+
+.dark-leaflet-popup .leaflet-popup-tip {
+  background: rgba(15, 23, 42, 0.95) !important;
+  border: 1px solid rgba(99, 102, 241, 0.45) !important;
+}
+
+.leaflet-bar a {
+  background-color: rgba(15, 23, 42, 0.9) !important;
+  color: #c7d2fe !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.leaflet-bar a:hover {
+  background-color: #4f46e5 !important;
+  color: #ffffff !important;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.4); opacity: 0.15; }
+  100% { transform: scale(1); opacity: 0.9; }
+}
