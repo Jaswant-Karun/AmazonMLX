@@ -6,7 +6,7 @@ import EntityDetailModal from './components/EntityDetailModal';
 import { 
   Search, Sparkles, MapPin, Building2, ShieldCheck, Layers, 
   ArrowRight, Compass, RefreshCw, Star, Tag, Award, Globe, Database,
-  SlidersHorizontal, CheckCircle2, ChevronRight, Zap
+  SlidersHorizontal, CheckCircle2, ChevronRight, Zap, Navigation
 } from 'lucide-react';
 
 const API_BASE = 'http://127.0.0.1:8000';
@@ -22,7 +22,8 @@ export default function App() {
   const [selectedEntityForModal, setSelectedEntityForModal] = useState(null);
   const [demoQueries, setDemoQueries] = useState([]);
   const [platformStats, setPlatformStats] = useState(null);
-  const [viewMode, setViewMode] = useState('split'); // 'split' | 'graph'
+  const [viewMode, setViewMode] = useState('split'); // 'split' | 'gps' | 'graph'
+  const [gpsDestinationId, setGpsDestinationId] = useState(null);
 
   // Fetch initial demos and platform stats
   useEffect(() => {
@@ -277,6 +278,26 @@ export default function App() {
             </button>
 
             <button
+              onClick={() => setViewMode('gps')}
+              style={{
+                background: viewMode === 'gps' ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)' : 'transparent',
+                color: viewMode === 'gps' ? '#ffffff' : '#94a3b8',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '6px 14px',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: viewMode === 'gps' ? '0 0 15px rgba(16,185,129,0.5)' : 'none'
+              }}
+            >
+              <Navigation size={14} /> 🧭 GPS Travel Mode
+            </button>
+
+            <button
               onClick={() => setViewMode('graph')}
               style={{
                 background: viewMode === 'graph' ? '#4f46e5' : 'transparent',
@@ -292,12 +313,45 @@ export default function App() {
                 gap: '6px'
               }}
             >
-              <Layers size={14} /> Fullscreen Entity Graph
+              <Layers size={14} /> Fullscreen Graph
             </button>
           </div>
         </div>
 
-        {/* View Mode 1: Fullscreen Entity Graph */}
+        {/* View Mode 1: Fullscreen GPS Travel Navigator */}
+        {viewMode === 'gps' && (
+          <div style={{ marginBottom: '40px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Navigation size={18} color="#34d399" /> Turn-by-Turn GPS Travel Navigator
+                </h2>
+                <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                  Live street-level GPS routing & vehicle navigation simulation to selected business premises
+                </p>
+              </div>
+              <button 
+                onClick={() => setViewMode('split')}
+                className="btn-secondary"
+                style={{ padding: '6px 14px', fontSize: '0.8rem' }}
+              >
+                Exit Fullscreen GPS
+              </button>
+            </div>
+            <div style={{ height: '620px' }}>
+              <InteractiveMap 
+                results={searchResults}
+                activeEntityId={activeEntityId}
+                onSelectEntity={handleSelectEntity}
+                parsedQuery={parsedQuery}
+                gpsDestinationId={gpsDestinationId}
+                onOpenDetails={openEntityDetails}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* View Mode 2: Fullscreen Entity Graph */}
         {viewMode === 'graph' && activeGraphData && (
           <div style={{ marginBottom: '40px' }}>
             <InteractiveGraph 
@@ -307,7 +361,7 @@ export default function App() {
           </div>
         )}
 
-        {/* View Mode 2: Split View (Results on Left, Map & Mini-Graph on Right) */}
+        {/* View Mode 3: Split View (Results on Left, Map & Mini-Graph on Right) */}
         {viewMode === 'split' && (
           <div style={{
             display: 'grid',
@@ -395,23 +449,47 @@ export default function App() {
                           )}
                         </div>
 
-                        <div style={{ display: 'flex', gap: '8px' }}>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectEntity(entity.canonical_id);
+                              setGpsDestinationId(entity.canonical_id);
+                              setViewMode('gps');
+                            }}
+                            style={{
+                              background: 'linear-gradient(135deg, rgba(16,185,129,0.2) 0%, rgba(5,150,105,0.35) 100%)',
+                              border: '1px solid #10b981',
+                              color: '#34d399',
+                              borderRadius: '8px',
+                              padding: '4px 10px',
+                              fontSize: '0.74rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              boxShadow: '0 0 10px rgba(16,185,129,0.25)'
+                            }}
+                          >
+                            <Navigation size={12} /> Travel GPS
+                          </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               openEntityDetails(entity.canonical_id);
                             }}
                             style={{
-                              background: 'transparent',
+                              background: 'rgba(255,255,255,0.04)',
                               border: '1px solid rgba(255,255,255,0.15)',
                               color: '#cbd5e1',
                               borderRadius: '8px',
                               padding: '4px 10px',
-                              fontSize: '0.75rem',
+                              fontSize: '0.74rem',
                               cursor: 'pointer'
                             }}
                           >
-                            Audit Lineage
+                            Audit
                           </button>
                           <button
                             onClick={(e) => {
@@ -420,7 +498,7 @@ export default function App() {
                               setViewMode('graph');
                             }}
                             className="btn-primary"
-                            style={{ padding: '4px 10px', fontSize: '0.75rem', borderRadius: '8px' }}
+                            style={{ padding: '4px 10px', fontSize: '0.74rem', borderRadius: '8px' }}
                           >
                             Graph
                           </button>
@@ -439,6 +517,8 @@ export default function App() {
                 activeEntityId={activeEntityId}
                 onSelectEntity={handleSelectEntity}
                 parsedQuery={parsedQuery}
+                gpsDestinationId={gpsDestinationId}
+                onOpenDetails={openEntityDetails}
               />
 
               {activeGraphData && (
