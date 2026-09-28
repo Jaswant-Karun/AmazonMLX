@@ -1,26 +1,27 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { 
   Compass, Layers, MapPin, Navigation, Eye, CheckCircle2, 
-  ExternalLink, Sparkles, Building2, Store, Utensils, HeartPulse, Laptop,
+  Sparkles, Building2, Store, Utensils, HeartPulse, Laptop,
   Play, Pause, RotateCcw, Gauge, Clock, ArrowUpRight, CornerUpRight, 
-  CornerUpLeft, Flag, Award, Volume2, X, ChevronRight
+  CornerUpLeft, Flag, Award, Volume2, VolumeX, X, ChevronRight,
+  FastForward, LocateFixed, Car, ShieldCheck
 } from 'lucide-react';
 
-// Free, No-API-Key Tile Providers (No Watermark, Ultra High Reliability)
+// Tile Providers (100% Free, Zero API Key Required, No Watermark)
 const TILE_LAYERS = {
   streets: {
     name: 'Street View',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-    attribution: '&copy; Esri &mdash; Street Map',
+    attribution: '&copy; Esri &mdash; World Street Map',
     maxZoom: 19
   },
   dark: {
-    name: 'Dark Canvas',
+    name: 'Dark Cockpit',
     base: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
     ref: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
-    attribution: '&copy; Esri &mdash; Dark Canvas',
+    attribution: '&copy; Esri &mdash; Dark Luxury Canvas',
     maxZoom: 16
   },
   satellite: {
@@ -37,22 +38,22 @@ const TILE_LAYERS = {
   }
 };
 
-// Deterministic micro-offset to prevent overlapping markers in the same locality
+// Deterministic jitter to prevent markers overlapping exactly at same lat/lng
 function getJitter(strId, index) {
   let hash = 0;
-  for (let i = 0; i < strId.length; i++) {
+  for (let i = 0; i < (strId || '').length; i++) {
     hash = (hash << 5) - hash + strId.charCodeAt(i);
     hash |= 0;
   }
   const angle = (Math.abs(hash) % 360) * (Math.PI / 180);
-  const radius = 0.003 + (index * 0.0015);
+  const radius = 0.0025 + (index * 0.0012);
   return {
     lat: Math.sin(angle) * radius,
     lng: Math.cos(angle) * radius
   };
 }
 
-// Calculate compass bearing between two points
+// Calculate compass bearing between two coordinates
 function calculateBearing(lat1, lng1, lat2, lng2) {
   const dLng = (lng2 - lng1) * (Math.PI / 180);
   const y = Math.sin(dLng) * Math.cos(lat2 * (Math.PI / 180));
@@ -62,7 +63,7 @@ function calculateBearing(lat1, lng1, lat2, lng2) {
   return brng;
 }
 
-// Calculate distance in kilometers
+// Haversine distance in km
 function calculateDistanceKm(lat1, lng1, lat2, lng2) {
   const R = 6371;
   const dLat = (lat2 - lat1) * (Math.PI / 180);
@@ -70,63 +71,22 @@ function calculateDistanceKm(lat1, lng1, lat2, lng2) {
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
             Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
             Math.sin(dLng / 2) * Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
-// Generate realistic road waypoints from origin to destination
-function generateRoadRoute(destLat, destLng, entityName, locality, landmark) {
-  // Origin ~ 2.4 km southwest
-  const originLat = destLat - 0.0165;
-  const originLng = destLng - 0.0195;
-
-  const keyWaypoints = [
-    { lat: originLat, lng: originLng, instruction: "Head Northeast on Outer Ring Road", turn: "straight" },
-    { lat: originLat + 0.0045, lng: originLng + 0.0035, instruction: "Continue straight past Highway Junction (1.2 km)", turn: "straight" },
-    { lat: originLat + 0.0090, lng: originLng + 0.0080, instruction: `In 350m, turn right onto Central Avenue towards ${locality || 'Commercial Zone'}`, turn: "right" },
-    { lat: originLat + 0.0105, lng: originLng + 0.0135, instruction: `Turn right onto Central Avenue`, turn: "right" },
-    { lat: originLat + 0.0135, lng: originLng + 0.0160, instruction: `In 200m, turn left near ${landmark || 'Main Commercial Center'}`, turn: "left" },
-    { lat: originLat + 0.0150, lng: originLng + 0.0175, instruction: `Turn left onto Business Driveway`, turn: "left" },
-    { lat: destLat, lng: destLng, instruction: `Arriving at ${entityName} on the right`, turn: "arrive" }
-  ];
-
-  // Interpolate dense sub-points (total 240 steps for butter-smooth animation)
-  const fullSteps = [];
-  for (let i = 0; i < keyWaypoints.length - 1; i++) {
-    const wp1 = keyWaypoints[i];
-    const wp2 = keyWaypoints[i + 1];
-    const stepsBetween = 40;
-
-    for (let s = 0; s < stepsBetween; s++) {
-      const t = s / stepsBetween;
-      const lat = wp1.lat + (wp2.lat - wp1.lat) * t;
-      const lng = wp1.lng + (wp2.lng - wp1.lng) * t;
-      fullSteps.push({
-        lat,
-        lng,
-        instruction: wp1.instruction,
-        turn: wp1.turn,
-        targetWp: wp2
-      });
-    }
+// Speech synthesis helper for GPS voice announcements
+function speakGuidance(text, isMuted) {
+  if (isMuted || !('speechSynthesis' in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.05;
+    utterance.pitch = 1.0;
+    utterance.volume = 0.9;
+    window.speechSynthesis.speak(utterance);
+  } catch (e) {
+    // Ignore speech errors
   }
-
-  // Push final destination point
-  fullSteps.push({
-    lat: destLat,
-    lng: destLng,
-    instruction: `Arrived at ${entityName}!`,
-    turn: "arrive",
-    targetWp: keyWaypoints[keyWaypoints.length - 1]
-  });
-
-  return {
-    origin: { lat: originLat, lng: originLng },
-    destination: { lat: destLat, lng: destLng },
-    keyWaypoints,
-    steps: fullSteps,
-    totalDistanceKm: calculateDistanceKm(originLat, originLng, destLat, destLng) * 1.35
-  };
 }
 
 export default function InteractiveMap({ 
@@ -135,6 +95,8 @@ export default function InteractiveMap({
   onSelectEntity, 
   parsedQuery,
   gpsDestinationId,
+  isGpsModeActive = false,
+  onExitGps,
   onOpenDetails
 }) {
   const mapContainerRef = useRef(null);
@@ -144,42 +106,38 @@ export default function InteractiveMap({
   const routeLayerRef = useRef(null);
   const vehicleMarkerRef = useRef(null);
 
-  const [currentLayerKey, setCurrentLayerKey] = useState('streets');
+  const [currentLayerKey, setCurrentLayerKey] = useState('dark');
   const [isMapReady, setIsMapReady] = useState(false);
 
   // GPS Simulation State
   const [isGpsActive, setIsGpsActive] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [simulationSpeed, setSimulationSpeed] = useState(1); // 1x, 2x, 4x
+  const [simulationSpeed, setSimulationSpeed] = useState(2); // 1x, 2x, 5x
   const [hasArrived, setHasArrived] = useState(false);
   const [cameraFollow, setCameraFollow] = useState(true);
+  const [isVoiceMuted, setIsVoiceMuted] = useState(false);
+  const [lastAnnouncedStep, setLastAnnouncedStep] = useState(-1);
 
-  const activeEntity = useMemo(() => {
-    return results.find(r => r.canonical_id === (gpsDestinationId || activeEntityId)) || results[0];
+  // Route storage from OSRM or fallback
+  const [routeData, setRouteData] = useState(null);
+  const [isLoadingRoute, setIsLoadingRoute] = useState(false);
+
+  // Identify the target destination entity
+  const targetEntity = useMemo(() => {
+    const idToFind = gpsDestinationId || activeEntityId;
+    return results.find(r => r.canonical_id === idToFind) || results[0];
   }, [results, activeEntityId, gpsDestinationId]);
 
-  // Generate current road route
-  const currentRoute = useMemo(() => {
-    if (!activeEntity?.lat || !activeEntity?.lng) return null;
-    return generateRoadRoute(
-      activeEntity.lat, 
-      activeEntity.lng, 
-      activeEntity.canonical_name, 
-      activeEntity.locality, 
-      activeEntity.landmark
-    );
-  }, [activeEntity]);
-
-  // Helper to attach tile layers
-  const setMapTiles = (map, layerKey) => {
-    if (tileLayersGroupRef.current) {
-      tileLayersGroupRef.current.clearLayers();
-    } else {
+  // Set tile layer
+  const setMapTiles = useCallback((map, layerKey) => {
+    if (!tileLayersGroupRef.current) {
       tileLayersGroupRef.current = L.layerGroup().addTo(map);
+    } else {
+      tileLayersGroupRef.current.clearLayers();
     }
 
-    const config = TILE_LAYERS[layerKey] || TILE_LAYERS.streets;
+    const config = TILE_LAYERS[layerKey] || TILE_LAYERS.dark;
     if (config.base && config.ref) {
       const base = L.tileLayer(config.base, { attribution: config.attribution, maxZoom: config.maxZoom });
       const ref = L.tileLayer(config.ref, { maxZoom: config.maxZoom });
@@ -189,25 +147,25 @@ export default function InteractiveMap({
       const tile = L.tileLayer(config.url, { attribution: config.attribution, maxZoom: config.maxZoom });
       tileLayersGroupRef.current.addLayer(tile);
     }
-  };
+  }, []);
 
   // 1. Initialize Map Once
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    const initialLat = activeEntity?.lat || 20.5937;
-    const initialLng = activeEntity?.lng || 78.9629;
+    const initialLat = targetEntity?.lat || 20.5937;
+    const initialLng = targetEntity?.lng || 78.9629;
 
     const map = L.map(mapContainerRef.current, {
       center: [initialLat, initialLng],
-      zoom: 6,
+      zoom: 12,
       zoomControl: false,
-      attributionControl: true
+      attributionControl: false
     });
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-    setMapTiles(map, 'streets');
+    setMapTiles(map, 'dark');
 
     markersLayerRef.current = L.layerGroup().addTo(map);
     routeLayerRef.current = L.layerGroup().addTo(map);
@@ -220,21 +178,151 @@ export default function InteractiveMap({
     };
   }, []);
 
-  // 2. Change Tile Layer
+  // Change Tile Layer
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
     setMapTiles(map, currentLayerKey);
-  }, [currentLayerKey]);
+  }, [currentLayerKey, setMapTiles]);
 
-  // 3. Render Normal Dataset Markers
+  // Fetch or Compute Road Route (Real OSRM with dense road steps & synthetic fallback)
+  const buildRouteForEntity = useCallback(async (dest) => {
+    if (!dest?.lat || !dest?.lng) return null;
+
+    setIsLoadingRoute(true);
+    const destLat = dest.lat;
+    const destLng = dest.lng;
+
+    // Realistic origin ~ 2.8 km away along a street vector
+    const originLat = destLat - 0.0185;
+    const originLng = destLng - 0.0210;
+
+    let points = [];
+    let instructions = [];
+
+    try {
+      // Attempt real OSRM road network query with 2.5s timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+      const url = `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`;
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.routes && data.routes.length > 0) {
+          const route = data.routes[0];
+          const coords = route.geometry.coordinates; // [lng, lat]
+          
+          // Interpolate dense sub-steps along the road
+          for (let i = 0; i < coords.length - 1; i++) {
+            const p1 = coords[i];
+            const p2 = coords[i + 1];
+            const subSteps = 12;
+            for (let s = 0; s < subSteps; s++) {
+              const t = s / subSteps;
+              points.push({
+                lat: p1[1] + (p2[1] - p1[1]) * t,
+                lng: p1[0] + (p2[0] - p1[0]) * t,
+                instruction: `Driving towards ${dest.canonical_name}`,
+                turn: 'straight'
+              });
+            }
+          }
+          points.push({
+            lat: destLat,
+            lng: destLng,
+            instruction: `Arrived at ${dest.canonical_name}`,
+            turn: 'arrive'
+          });
+
+          // Extract maneuvers
+          if (route.legs && route.legs[0]?.steps) {
+            instructions = route.legs[0].steps.map(step => ({
+              text: step.maneuver.instruction || `Head ${step.maneuver.modifier || 'forward'} on ${step.name || 'Road'}`,
+              modifier: step.maneuver.modifier || 'straight',
+              distMeters: Math.round(step.distance)
+            }));
+          }
+        }
+      }
+    } catch (e) {
+      // Fallback below
+    }
+
+    // High-Resolution Fallback if OSRM is unreachable
+    if (points.length === 0) {
+      const landmarkText = dest.landmark || 'Commercial Hub';
+      const localityText = dest.locality || 'City Centre';
+
+      const keyWps = [
+        { lat: originLat, lng: originLng, instruction: `Start journey from Outer Ring Road`, turn: 'straight' },
+        { lat: originLat + 0.0055, lng: originLng + 0.0040, instruction: `Continue past Highway Overpass (900m)`, turn: 'straight' },
+        { lat: originLat + 0.0105, lng: originLng + 0.0090, instruction: `In 250m, Turn Right onto Main Arterial Road`, turn: 'right' },
+        { lat: originLat + 0.0125, lng: originLng + 0.0145, instruction: `Turn Right onto ${localityText} Main Road`, turn: 'right' },
+        { lat: originLat + 0.0155, lng: originLng + 0.0180, instruction: `Turn Left near landmark: ${landmarkText}`, turn: 'left' },
+        { lat: destLat, lng: destLng, instruction: `Arriving at ${dest.canonical_name} on right`, turn: 'arrive' }
+      ];
+
+      for (let i = 0; i < keyWps.length - 1; i++) {
+        const wp1 = keyWps[i];
+        const wp2 = keyWps[i + 1];
+        const count = 35;
+        for (let s = 0; s < count; s++) {
+          const t = s / count;
+          points.push({
+            lat: wp1.lat + (wp2.lat - wp1.lat) * t,
+            lng: wp1.lng + (wp2.lng - wp1.lng) * t,
+            instruction: wp1.instruction,
+            turn: wp1.turn
+          });
+        }
+      }
+      points.push({
+        lat: destLat,
+        lng: destLng,
+        instruction: `Arrived at ${dest.canonical_name}!`,
+        turn: 'arrive'
+      });
+    }
+
+    const totalDist = calculateDistanceKm(originLat, originLng, destLat, destLng) * 1.32;
+    const resultRoute = {
+      origin: { lat: originLat, lng: originLng },
+      destination: { lat: destLat, lng: destLng },
+      steps: points,
+      totalDistanceKm: totalDist,
+      instructions
+    };
+
+    setRouteData(resultRoute);
+    setIsLoadingRoute(false);
+    return resultRoute;
+  }, []);
+
+  // When gpsDestinationId or isGpsModeActive changes, automatically start GPS travel!
+  useEffect(() => {
+    if (!targetEntity) return;
+
+    if (gpsDestinationId || isGpsModeActive) {
+      buildRouteForEntity(targetEntity).then(() => {
+        setIsGpsActive(true);
+        setIsNavigating(true);
+        setCurrentStepIndex(0);
+        setHasArrived(false);
+        speakGuidance(`Starting GPS navigation to ${targetEntity.canonical_name}`, isVoiceMuted);
+      });
+    }
+  }, [gpsDestinationId, isGpsModeActive, targetEntity, buildRouteForEntity, isVoiceMuted]);
+
+  // Render normal dataset markers when not in GPS navigation
   useEffect(() => {
     const map = mapInstanceRef.current;
     const layer = markersLayerRef.current;
     if (!map || !layer || !isMapReady) return;
 
     layer.clearLayers();
-
     if (!results || results.length === 0) return;
 
     const bounds = L.latLngBounds();
@@ -242,20 +330,20 @@ export default function InteractiveMap({
     results.forEach((entity, idx) => {
       if (!entity.lat || !entity.lng) return;
 
-      const isSelected = entity.canonical_id === activeEntity?.canonical_id;
+      const isSelected = entity.canonical_id === targetEntity?.canonical_id;
       const jitter = getJitter(entity.canonical_id, idx);
       const entityLat = entity.lat + jitter.lat;
       const entityLng = entity.lng + jitter.lng;
 
       bounds.extend([entityLat, entityLng]);
 
-      let pinColor = '#4f46e5';
-      let pinLabel = '🏬';
-      if (entity.category === 'food_dining') { pinColor = '#10b981'; pinLabel = '☕'; }
-      else if (entity.category === 'corporate_tech') { pinColor = '#06b6d4'; pinLabel = '💻'; }
-      else if (entity.category === 'healthcare_pharma') { pinColor = '#f43f5e'; pinLabel = '🏥'; }
-      else if (entity.category === 'real_estate_premises') { pinColor = '#a855f7'; pinLabel = '🏢'; }
-      else if (entity.category === 'retail_shop') { pinColor = '#f59e0b'; pinLabel = '🛍️'; }
+      let pinColor = '#6366f1';
+      let pinEmoji = '🏬';
+      if (entity.category === 'food_dining') { pinColor = '#10b981'; pinEmoji = '☕'; }
+      else if (entity.category === 'corporate_tech') { pinColor = '#06b6d4'; pinEmoji = '💻'; }
+      else if (entity.category === 'healthcare_pharma') { pinColor = '#f43f5e'; pinEmoji = '🏥'; }
+      else if (entity.category === 'real_estate_premises') { pinColor = '#a855f7'; pinEmoji = '🏢'; }
+      else if (entity.category === 'retail_shop') { pinColor = '#f59e0b'; pinEmoji = '🛍️'; }
 
       const customIcon = L.divIcon({
         className: 'custom-real-marker',
@@ -265,38 +353,38 @@ export default function InteractiveMap({
             display: flex;
             align-items: center;
             justify-content: center;
-            width: ${isSelected ? '38px' : '30px'};
-            height: ${isSelected ? '38px' : '30px'};
-            background: ${isSelected ? '#6366f1' : pinColor};
+            width: ${isSelected ? '42px' : '32px'};
+            height: ${isSelected ? '42px' : '32px'};
+            background: ${isSelected ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : pinColor};
             border: 2px solid ${isSelected ? '#ffffff' : 'rgba(255,255,255,0.85)'};
             border-radius: 50%;
-            box-shadow: 0 0 ${isSelected ? '22px rgba(99,102,241,0.9)' : '10px rgba(0,0,0,0.6)'};
+            box-shadow: ${isSelected ? '0 0 25px rgba(16,185,129,0.95)' : '0 4px 12px rgba(0,0,0,0.6)'};
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
           ">
-            <span style="font-size: ${isSelected ? '16px' : '13px'}; line-height: 1;">${pinLabel}</span>
+            <span style="font-size: ${isSelected ? '18px' : '14px'}; line-height: 1;">${pinEmoji}</span>
             ${isSelected ? `
               <div style="
                 position: absolute;
-                inset: -6px;
-                border: 2px solid #818cf8;
+                inset: -7px;
+                border: 2px solid #34d399;
                 border-radius: 50%;
-                animation: pulse 1.8s infinite;
+                animation: pulse 1.6s infinite;
               "></div>
             ` : ''}
           </div>
         `,
-        iconSize: [isSelected ? 38 : 30, isSelected ? 38 : 30],
-        iconAnchor: [isSelected ? 19 : 15, isSelected ? 19 : 15]
+        iconSize: [isSelected ? 42 : 32, isSelected ? 42 : 32],
+        iconAnchor: [isSelected ? 21 : 16, isSelected ? 21 : 16]
       });
 
       const marker = L.marker([entityLat, entityLng], { icon: customIcon });
 
       const flag = entity.country === 'India' ? '🇮🇳' : (entity.country === 'France' ? '🇫🇷' : '🇺🇸');
       const popupHtml = `
-        <div style="min-width: 230px; max-width: 280px; font-family: inherit; color: #f8fafc; padding: 6px 2px;">
+        <div style="min-width: 240px; max-width: 290px; color: #f8fafc; font-family: inherit;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-            <span style="font-size: 0.72rem; font-weight: 700; color: #818cf8; background: rgba(99,102,241,0.15); padding: 2px 7px; border-radius: 4px;">
+            <span style="font-size: 0.72rem; font-weight: 700; color: #34d399; background: rgba(16,185,129,0.15); padding: 2px 8px; border-radius: 4px;">
               ${entity.canonical_id}
             </span>
             <span style="font-size: 0.8rem;">${flag} ${entity.country}</span>
@@ -307,11 +395,11 @@ export default function InteractiveMap({
           <p style="margin: 0 0 8px 0; font-size: 0.78rem; color: #94a3b8; line-height: 1.35;">
             📍 ${entity.golden_address}
           </p>
-          <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 6px; font-size: 0.72rem;">
-            <span style="color: #34d399; font-weight: 600;">
-              ✓ ${entity.matched_sources_count || 1} Sources Resolved
+          <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 6px;">
+            <span style="color: #34d399; font-size: 0.75rem; font-weight: 700;">
+              ✓ ${entity.confidence_pct || 96}% Consensus
             </span>
-            <span style="color: #fbbf24; font-weight: 600;">
+            <span style="color: #fbbf24; font-size: 0.75rem; font-weight: 700;">
               ⭐ ${entity.rating || 4.5}
             </span>
           </div>
@@ -319,21 +407,23 @@ export default function InteractiveMap({
       `;
 
       marker.bindPopup(popupHtml, { className: 'dark-leaflet-popup', closeButton: false });
-      marker.on('click', () => onSelectEntity(entity.canonical_id));
+      marker.on('click', () => {
+        if (onSelectEntity) onSelectEntity(entity.canonical_id);
+      });
       marker.addTo(layer);
     });
 
     if (!isGpsActive) {
-      if (activeEntity?.lat && activeEntity?.lng) {
-        const activeJitter = getJitter(activeEntity.canonical_id, 0);
-        map.flyTo([activeEntity.lat + activeJitter.lat, activeEntity.lng + activeJitter.lng], 12, { duration: 1.0 });
+      if (targetEntity?.lat && targetEntity?.lng) {
+        const jitter = getJitter(targetEntity.canonical_id, 0);
+        map.flyTo([targetEntity.lat + jitter.lat, targetEntity.lng + jitter.lng], 13, { duration: 1.0 });
       } else if (bounds.isValid()) {
-        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 11 });
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
       }
     }
-  }, [results, activeEntity, isMapReady, isGpsActive]);
+  }, [results, targetEntity, isMapReady, isGpsActive, onSelectEntity]);
 
-  // 4. GPS Navigation Mode: Draw Neon Route & Vehicle Marker
+  // Draw Route Polyline & Vehicle when in GPS Mode
   useEffect(() => {
     const map = mapInstanceRef.current;
     const rLayer = routeLayerRef.current;
@@ -341,146 +431,151 @@ export default function InteractiveMap({
 
     rLayer.clearLayers();
 
-    if (!isGpsActive || !currentRoute) return;
+    if (!isGpsActive || !routeData || !routeData.steps || routeData.steps.length === 0) return;
 
-    // Draw full road polyline (Glow background)
-    const latLngs = currentRoute.steps.map(s => [s.lat, s.lng]);
-    
-    // Outer glow polyline
+    const latLngs = routeData.steps.map(s => [s.lat, s.lng]);
+
+    // Outer Neon Glow Polyline
     L.polyline(latLngs, {
-      color: '#06b6d4',
-      weight: 8,
-      opacity: 0.45,
+      color: '#10b981',
+      weight: 10,
+      opacity: 0.35,
       lineCap: 'round',
       lineJoin: 'round'
     }).addTo(rLayer);
 
-    // Inner bright polyline
+    // Inner Crisp Core Polyline
     L.polyline(latLngs, {
-      color: '#38bdf8',
+      color: '#34d399',
       weight: 4,
       opacity: 0.95,
       dashArray: '8, 6',
       lineCap: 'round'
     }).addTo(rLayer);
 
-    // Origin Marker (Start)
-    const originIcon = L.divIcon({
-      className: 'gps-origin-marker',
+    // Origin Starting Flag Marker
+    const startIcon = L.divIcon({
+      className: 'gps-start-pin',
       html: `
-        <div style="background: #10b981; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 0 15px rgba(16,185,129,0.8); font-size: 12px; font-weight: 700;">
+        <div style="background: #10b981; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 0 20px rgba(16,185,129,0.85); font-size: 14px;">
           🏁
         </div>
       `,
-      iconSize: [28, 28],
-      iconAnchor: [14, 14]
+      iconSize: [32, 32],
+      iconAnchor: [16, 16]
     });
-    L.marker([currentRoute.origin.lat, currentRoute.origin.lng], { icon: originIcon }).addTo(rLayer);
+    L.marker([routeData.origin.lat, routeData.origin.lng], { icon: startIcon }).addTo(rLayer);
 
-    // Destination Marker (Finish)
+    // Target Destination Flag Marker
     const destIcon = L.divIcon({
-      className: 'gps-dest-marker',
+      className: 'gps-dest-pin',
       html: `
-        <div style="background: #ef4444; color: white; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 0 20px rgba(239,68,68,0.9); font-size: 15px;">
+        <div style="background: #ef4444; color: white; width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 0 25px rgba(239,68,68,0.95); font-size: 18px;">
           📍
         </div>
       `,
-      iconSize: [34, 34],
-      iconAnchor: [17, 17]
+      iconSize: [38, 38],
+      iconAnchor: [19, 19]
     });
-    L.marker([currentRoute.destination.lat, currentRoute.destination.lng], { icon: destIcon }).addTo(rLayer);
+    L.marker([routeData.destination.lat, routeData.destination.lng], { icon: destIcon }).addTo(rLayer);
 
-    // Initialize vehicle marker at current step
-    const step = currentRoute.steps[currentStepIndex] || currentRoute.steps[0];
-    const nextStep = currentRoute.steps[Math.min(currentStepIndex + 1, currentRoute.steps.length - 1)];
-    const heading = calculateBearing(step.lat, step.lng, nextStep.lat, nextStep.lng);
+    // Vehicle Marker with Real-time Rotational Heading
+    const curStep = routeData.steps[currentStepIndex] || routeData.steps[0];
+    const nxtStep = routeData.steps[Math.min(currentStepIndex + 1, routeData.steps.length - 1)];
+    const initialHeading = calculateBearing(curStep.lat, curStep.lng, nxtStep.lat, nxtStep.lng);
 
     const vehicleIcon = L.divIcon({
-      className: 'gps-vehicle-marker',
+      className: 'gps-active-car-marker',
       html: `
         <div style="
           position: relative;
-          width: 44px;
-          height: 44px;
+          width: 50px;
+          height: 50px;
           display: flex;
           align-items: center;
           justify-content: center;
-          transform: rotate(${heading}deg);
-          transition: transform 0.15s ease-out;
+          transform: rotate(${initialHeading}deg);
+          transition: transform 0.12s ease-out;
         ">
-          <!-- Radar beam glow ahead -->
+          <!-- Headlights Cone Beam -->
           <div style="
             position: absolute;
-            top: -24px;
-            width: 32px;
-            height: 32px;
-            background: radial-gradient(circle, rgba(56,189,248,0.5) 0%, transparent 70%);
-            border-radius: 50%;
+            top: -30px;
+            width: 36px;
+            height: 38px;
+            background: linear-gradient(to top, rgba(56, 189, 248, 0.6) 0%, rgba(56, 189, 248, 0.0) 100%);
+            clip-path: polygon(30% 100%, 70% 100%, 100% 0%, 0% 0%);
+            pointer-events: none;
           "></div>
-          <!-- Vehicle body -->
+          <!-- Vehicle Disc -->
           <div style="
-            width: 32px;
-            height: 32px;
-            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, #059669 0%, #10b981 50%, #34d399 100%);
             border: 2px solid #ffffff;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 0 20px rgba(99,102,241,0.95);
-            font-size: 16px;
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.95);
+            font-size: 18px;
           ">
             🚘
           </div>
         </div>
       `,
-      iconSize: [44, 44],
-      iconAnchor: [22, 22]
+      iconSize: [50, 50],
+      iconAnchor: [25, 25]
     });
 
-    const vMarker = L.marker([step.lat, step.lng], { icon: vehicleIcon, zIndexOffset: 1000 });
+    const vMarker = L.marker([curStep.lat, curStep.lng], { icon: vehicleIcon, zIndexOffset: 2000 });
     vMarker.addTo(rLayer);
     vehicleMarkerRef.current = vMarker;
 
-    // Zoom into route on activation
-    const routeBounds = L.latLngBounds(latLngs);
-    map.fitBounds(routeBounds, { padding: [60, 60], maxZoom: 15 });
-  }, [isGpsActive, currentRoute, isMapReady]);
+    // Center map view on starting area
+    map.fitBounds(L.latLngBounds(latLngs), { padding: [70, 70], maxZoom: 15 });
+  }, [isGpsActive, routeData, isMapReady]);
 
-  // 5. GPS Simulation Animation Loop
+  // GPS Simulation Animation Loop
   useEffect(() => {
-    if (!isGpsActive || !isNavigating || !currentRoute) return;
+    if (!isGpsActive || !isNavigating || !routeData || !routeData.steps) return;
 
-    const intervalTime = 60 / simulationSpeed;
+    const intervalTime = Math.max(30, 80 / simulationSpeed);
     const timer = setInterval(() => {
       setCurrentStepIndex(prev => {
-        if (prev >= currentRoute.steps.length - 1) {
+        if (prev >= routeData.steps.length - 1) {
           setIsNavigating(false);
           setHasArrived(true);
+          speakGuidance(`You have arrived at ${targetEntity?.canonical_name}`, isVoiceMuted);
           return prev;
         }
 
         const next = prev + 1;
-        const curStep = currentRoute.steps[next];
-        const futureStep = currentRoute.steps[Math.min(next + 1, currentRoute.steps.length - 1)];
-        const heading = calculateBearing(curStep.lat, curStep.lng, futureStep.lat, futureStep.lng);
+        const cur = routeData.steps[next];
+        const ahead = routeData.steps[Math.min(next + 1, routeData.steps.length - 1)];
+        const heading = calculateBearing(cur.lat, cur.lng, ahead.lat, ahead.lng);
 
-        // Update vehicle position smoothly
+        // Update car position & rotation
         if (vehicleMarkerRef.current) {
-          vehicleMarkerRef.current.setLatLng([curStep.lat, curStep.lng]);
-          
-          const iconElem = vehicleMarkerRef.current.getElement();
-          if (iconElem) {
-            const inner = iconElem.querySelector('.gps-vehicle-marker > div') || iconElem.firstChild;
+          vehicleMarkerRef.current.setLatLng([cur.lat, cur.lng]);
+          const elem = vehicleMarkerRef.current.getElement();
+          if (elem) {
+            const inner = elem.querySelector('.gps-active-car-marker > div') || elem.firstChild;
             if (inner && inner.style) {
               inner.style.transform = `rotate(${heading}deg)`;
             }
           }
         }
 
+        // Voice cue at major turn events
+        if (cur.turn !== 'straight' && next !== lastAnnouncedStep && next % 30 === 0) {
+          speakGuidance(cur.instruction, isVoiceMuted);
+          setLastAnnouncedStep(next);
+        }
+
         // Camera follow
         if (cameraFollow && mapInstanceRef.current) {
-          mapInstanceRef.current.setView([curStep.lat, curStep.lng], 16, { animate: true, duration: 0.1 });
+          mapInstanceRef.current.setView([cur.lat, cur.lng], 16, { animate: true, duration: 0.1 });
         }
 
         return next;
@@ -488,30 +583,50 @@ export default function InteractiveMap({
     }, intervalTime);
 
     return () => clearInterval(timer);
-  }, [isGpsActive, isNavigating, currentRoute, simulationSpeed, cameraFollow]);
+  }, [isGpsActive, isNavigating, routeData, simulationSpeed, cameraFollow, isVoiceMuted, lastAnnouncedStep, targetEntity]);
 
-  // Start GPS Travel
-  const startTravelSimulation = () => {
-    setIsGpsActive(true);
-    setHasArrived(false);
-    setCurrentStepIndex(0);
-    setIsNavigating(true);
+  // User Actions
+  const handleStartTravel = () => {
+    if (!targetEntity) return;
+    buildRouteForEntity(targetEntity).then(() => {
+      setIsGpsActive(true);
+      setIsNavigating(true);
+      setCurrentStepIndex(0);
+      setHasArrived(false);
+      speakGuidance(`Navigating to ${targetEntity.canonical_name}`, isVoiceMuted);
+    });
   };
 
-  const pauseResumeTravel = () => {
+  const handlePauseResume = () => {
     setIsNavigating(prev => !prev);
   };
 
-  const resetTravel = () => {
+  const handleReset = () => {
     setCurrentStepIndex(0);
     setHasArrived(false);
     setIsNavigating(false);
-    if (vehicleMarkerRef.current && currentRoute) {
-      vehicleMarkerRef.current.setLatLng([currentRoute.origin.lat, currentRoute.origin.lng]);
+    if (vehicleMarkerRef.current && routeData) {
+      vehicleMarkerRef.current.setLatLng([routeData.origin.lat, routeData.origin.lng]);
     }
   };
 
-  const exitGpsMode = () => {
+  const handleJumpToEnd = () => {
+    if (!routeData || !routeData.steps) return;
+    const lastIdx = routeData.steps.length - 1;
+    setCurrentStepIndex(lastIdx);
+    setIsNavigating(false);
+    setHasArrived(true);
+    const lastStep = routeData.steps[lastIdx];
+    if (vehicleMarkerRef.current) {
+      vehicleMarkerRef.current.setLatLng([lastStep.lat, lastStep.lng]);
+    }
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.setView([lastStep.lat, lastStep.lng], 17);
+    }
+    speakGuidance(`You have arrived at ${targetEntity?.canonical_name}`, isVoiceMuted);
+  };
+
+  const handleExitGps = () => {
     setIsGpsActive(false);
     setIsNavigating(false);
     setHasArrived(false);
@@ -519,96 +634,116 @@ export default function InteractiveMap({
     if (routeLayerRef.current) {
       routeLayerRef.current.clearLayers();
     }
-    if (activeEntity?.lat && mapInstanceRef.current) {
-      mapInstanceRef.current.setView([activeEntity.lat, activeEntity.lng], 12);
-    }
+    if (onExitGps) onExitGps();
   };
 
-  // Turn calculation for current step
-  const currentStep = currentRoute?.steps[currentStepIndex] || currentRoute?.steps[0];
-  const progressRatio = currentRoute ? (currentStepIndex / (currentRoute.steps.length - 1)) : 0;
-  const remainingDistKm = currentRoute ? Math.max(0, (currentRoute.totalDistanceKm * (1 - progressRatio))).toFixed(2) : '0.0';
-  const remainingTimeMins = Math.max(1, Math.round(parseFloat(remainingDistKm) * 1.5));
-  const currentSpeedKmH = isNavigating ? Math.round(42 + (Math.sin(currentStepIndex * 0.1) * 8) * simulationSpeed) : 0;
+  // Metrics calculation
+  const curStep = routeData?.steps[currentStepIndex] || routeData?.steps[0];
+  const progressRatio = routeData?.steps?.length ? (currentStepIndex / (routeData.steps.length - 1)) : 0;
+  const remainingDistKm = routeData ? Math.max(0, (routeData.totalDistanceKm * (1 - progressRatio))).toFixed(2) : '0.00';
+  const remainingTimeMins = Math.max(1, Math.round(parseFloat(remainingDistKm) * 1.6));
+  const currentSpeedKmH = isNavigating ? Math.round(48 + (Math.sin(currentStepIndex * 0.15) * 12) * (simulationSpeed / 1.5)) : 0;
 
   return (
     <div style={{
       position: 'relative',
       width: '100%',
-      height: '520px',
-      borderRadius: '16px',
+      height: '100%',
+      minHeight: '520px',
+      borderRadius: '20px',
       overflow: 'hidden',
-      border: '1px solid var(--border-glow)',
-      boxShadow: '0 16px 40px rgba(0,0,0,0.7)',
-      background: '#090d16'
+      border: isGpsActive ? '2px solid #10b981' : '1px solid rgba(99, 102, 241, 0.35)',
+      boxShadow: isGpsActive ? '0 0 35px rgba(16, 185, 129, 0.35)' : '0 20px 50px rgba(0,0,0,0.8)',
+      background: '#070a12',
+      display: 'flex',
+      flexDirection: 'column'
     }}>
-      {/* Map Header Overlay Bar */}
+      {/* TOP FLOATING OVERLAY BAR */}
       <div style={{
         position: 'absolute',
-        top: '12px',
-        left: '12px',
-        right: '12px',
+        top: '14px',
+        left: '14px',
+        right: '14px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        background: 'rgba(15, 23, 42, 0.90)',
-        backdropFilter: 'blur(12px)',
-        border: '1px solid rgba(255,255,255,0.12)',
-        borderRadius: '12px',
-        padding: '8px 14px',
-        zIndex: 1000
+        background: 'rgba(11, 15, 25, 0.92)',
+        backdropFilter: 'blur(16px)',
+        border: '1px solid rgba(255, 255, 255, 0.12)',
+        borderRadius: '14px',
+        padding: '10px 16px',
+        zIndex: 1000,
+        boxShadow: '0 8px 30px rgba(0,0,0,0.6)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', fontWeight: 600 }}>
-          <Compass size={16} color="#818cf8" />
-          <span style={{ color: '#ffffff' }}>OpenStreetMap • Real-World Geographic Alignment</span>
-          {activeEntity && (
-            <span style={{
-              background: 'rgba(99, 102, 241, 0.25)',
-              color: '#c7d2fe',
-              padding: '2px 8px',
-              borderRadius: '6px',
-              fontSize: '0.72rem',
-              fontWeight: 600,
-              border: '1px solid rgba(99, 102, 241, 0.3)'
-            }}>
-              {activeEntity.city || activeEntity.locality}, {activeEntity.country}
-            </span>
-          )}
+        {/* Active Destination Information */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+          <div style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '10px',
+            background: isGpsActive ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #6366f1, #4f46e5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: isGpsActive ? '0 0 15px rgba(16,185,129,0.7)' : '0 0 15px rgba(99,102,241,0.5)',
+            flexShrink: 0
+          }}>
+            {isGpsActive ? <Car size={18} color="#ffffff" /> : <MapPin size={18} color="#ffffff" />}
+          </div>
+
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {targetEntity?.canonical_name || 'Select a Destination'}
+              </span>
+              {targetEntity && (
+                <span className="badge-verified" style={{ padding: '1px 7px', fontSize: '0.68rem' }}>
+                  {targetEntity.confidence_pct || 96}% Match
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {targetEntity?.golden_address || 'Search and select any business from the real dataset'}
+            </div>
+          </div>
         </div>
 
-        {/* GPS Mode Trigger & Layer Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {/* Action Controls & Tile Switcher */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
           {!isGpsActive ? (
             <button
-              onClick={startTravelSimulation}
+              onClick={handleStartTravel}
+              disabled={isLoadingRoute}
               style={{
                 background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
                 color: '#ffffff',
                 border: 'none',
-                borderRadius: '8px',
-                padding: '6px 12px',
-                fontSize: '0.75rem',
-                fontWeight: 700,
+                borderRadius: '10px',
+                padding: '8px 16px',
+                fontSize: '0.82rem',
+                fontWeight: 800,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 0 15px rgba(16,185,129,0.5)'
+                gap: '8px',
+                boxShadow: '0 0 20px rgba(16, 185, 129, 0.65)',
+                transition: 'all 0.2s ease'
               }}
             >
-              <Navigation size={14} /> Start GPS Travel
+              <Navigation size={15} /> 
+              {isLoadingRoute ? 'Routing...' : 'Start GPS Travel'}
             </button>
           ) : (
             <button
-              onClick={exitGpsMode}
+              onClick={handleExitGps}
               style={{
-                background: 'rgba(239, 68, 68, 0.25)',
-                color: '#fca5a5',
+                background: 'rgba(239, 68, 68, 0.2)',
                 border: '1px solid #ef4444',
-                borderRadius: '8px',
-                padding: '6px 12px',
-                fontSize: '0.75rem',
-                fontWeight: 600,
+                color: '#fca5a5',
+                borderRadius: '10px',
+                padding: '7px 14px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -619,11 +754,12 @@ export default function InteractiveMap({
             </button>
           )}
 
+          {/* Tile Layer Selector */}
           <div style={{
             display: 'flex',
-            background: 'rgba(0,0,0,0.5)',
-            borderRadius: '6px',
-            padding: '2px',
+            background: 'rgba(0,0,0,0.6)',
+            borderRadius: '8px',
+            padding: '3px',
             border: '1px solid rgba(255,255,255,0.08)'
           }}>
             {Object.keys(TILE_LAYERS).map(key => (
@@ -634,8 +770,8 @@ export default function InteractiveMap({
                   background: currentLayerKey === key ? '#4f46e5' : 'transparent',
                   color: currentLayerKey === key ? '#ffffff' : '#94a3b8',
                   border: 'none',
-                  borderRadius: '4px',
-                  padding: '3px 7px',
+                  borderRadius: '6px',
+                  padding: '4px 8px',
                   fontSize: '0.7rem',
                   fontWeight: 600,
                   cursor: 'pointer'
@@ -648,142 +784,156 @@ export default function InteractiveMap({
         </div>
       </div>
 
-      {/* TOP-LEFT GPS TURN-BY-TURN HUD (When in GPS Navigation Mode) */}
-      {isGpsActive && currentStep && (
+      {/* TOP-LEFT GPS TURN-BY-TURN HUD (Active During Travel) */}
+      {isGpsActive && curStep && (
         <div style={{
           position: 'absolute',
-          top: '64px',
-          left: '12px',
+          top: '74px',
+          left: '14px',
           zIndex: 1000,
-          background: 'rgba(15, 23, 42, 0.94)',
-          backdropFilter: 'blur(16px)',
-          border: '1px solid #38bdf8',
-          borderRadius: '14px',
-          padding: '12px 16px',
-          boxShadow: '0 10px 30px rgba(6, 182, 212, 0.35)',
+          background: 'rgba(11, 15, 25, 0.94)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid #34d399',
+          borderRadius: '16px',
+          padding: '14px 18px',
+          boxShadow: '0 12px 35px rgba(16, 185, 129, 0.35)',
           maxWidth: '380px',
           color: '#ffffff'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <div style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '10px',
-              background: '#0284c7',
+              width: '44px',
+              height: '44px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '20px',
+              boxShadow: '0 0 15px rgba(16, 185, 129, 0.7)',
               flexShrink: 0
             }}>
-              {currentStep.turn === 'right' ? <CornerUpRight size={22} color="#ffffff" /> : 
-               currentStep.turn === 'left' ? <CornerUpLeft size={22} color="#ffffff" /> : 
-               currentStep.turn === 'arrive' ? <Flag size={22} color="#facc15" /> : 
-               <ArrowUpRight size={22} color="#ffffff" />}
+              {curStep.turn === 'right' ? <CornerUpRight size={24} color="#ffffff" /> : 
+               curStep.turn === 'left' ? <CornerUpLeft size={24} color="#ffffff" /> : 
+               curStep.turn === 'arrive' ? <Flag size={24} color="#facc15" /> : 
+               <ArrowUpRight size={24} color="#ffffff" />}
             </div>
 
-            <div>
-              <div style={{ fontSize: '0.72rem', color: '#38bdf8', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>
-                {currentStep.turn === 'arrive' ? 'Target Destination' : 'Next Navigation Cue'}
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                <span style={{ fontSize: '0.68rem', color: '#34d399', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.6px' }}>
+                  {curStep.turn === 'arrive' ? 'Target Destination' : 'Next Driving Maneuver'}
+                </span>
+                <button
+                  onClick={() => setIsVoiceMuted(prev => !prev)}
+                  title={isVoiceMuted ? 'Unmute GPS Voice' : 'Mute GPS Voice'}
+                  style={{ background: 'none', border: 'none', color: isVoiceMuted ? '#94a3b8' : '#34d399', cursor: 'pointer' }}
+                >
+                  {isVoiceMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+                </button>
               </div>
+
               <div style={{ fontSize: '0.92rem', fontWeight: 700, lineHeight: 1.3 }}>
-                {currentStep.instruction}
+                {curStep.instruction}
               </div>
             </div>
           </div>
 
-          {/* Real-time Progress Bar */}
-          <div style={{ marginTop: '10px', background: 'rgba(255,255,255,0.1)', height: '4px', borderRadius: '2px', overflow: 'hidden' }}>
+          {/* Progress bar */}
+          <div style={{ marginTop: '12px', background: 'rgba(255,255,255,0.08)', height: '5px', borderRadius: '3px', overflow: 'hidden' }}>
             <div style={{
-              background: 'linear-gradient(90deg, #38bdf8 0%, #34d399 100%)',
+              background: 'linear-gradient(90deg, #10b981 0%, #34d399 100%)',
               height: '100%',
               width: `${progressRatio * 100}%`,
-              transition: 'width 0.1s linear'
+              transition: 'width 0.1s linear',
+              boxShadow: '0 0 10px #34d399'
             }}></div>
           </div>
         </div>
       )}
 
-      {/* BOTTOM GPS COCKPIT CONTROL BAR (When in GPS Mode) */}
+      {/* BOTTOM GPS COCKPIT CONTROL BAR */}
       {isGpsActive && (
         <div style={{
           position: 'absolute',
-          bottom: '12px',
-          left: '12px',
-          right: '12px',
+          bottom: '14px',
+          left: '14px',
+          right: '14px',
           zIndex: 1000,
-          background: 'rgba(15, 23, 42, 0.95)',
-          backdropFilter: 'blur(16px)',
+          background: 'rgba(11, 15, 25, 0.95)',
+          backdropFilter: 'blur(20px)',
           border: '1px solid rgba(255,255,255,0.12)',
-          borderRadius: '14px',
-          padding: '10px 18px',
+          borderRadius: '16px',
+          padding: '12px 20px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          boxShadow: '0 10px 30px rgba(0,0,0,0.8)'
+          boxShadow: '0 16px 40px rgba(0,0,0,0.85)'
         }}>
           {/* Trip Metrics */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Gauge size={18} color="#38bdf8" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '22px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Gauge size={22} color="#34d399" />
               <div>
-                <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase' }}>Current Speed</div>
-                <div style={{ fontSize: '1rem', fontWeight: 800, color: '#ffffff' }}>{currentSpeedKmH} km/h</div>
+                <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600 }}>Speed</div>
+                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#ffffff' }}>{currentSpeedKmH} <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>km/h</span></div>
               </div>
             </div>
 
-            <div style={{ width: '1px', height: '26px', background: 'rgba(255,255,255,0.1)' }}></div>
+            <div style={{ width: '1px', height: '28px', background: 'rgba(255,255,255,0.1)' }}></div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Navigation size={18} color="#34d399" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Navigation size={22} color="#38bdf8" />
               <div>
-                <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase' }}>Remaining</div>
-                <div style={{ fontSize: '1rem', fontWeight: 800, color: '#ffffff' }}>{remainingDistKm} km</div>
+                <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600 }}>Remaining</div>
+                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#ffffff' }}>{remainingDistKm} <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>km</span></div>
               </div>
             </div>
 
-            <div style={{ width: '1px', height: '26px', background: 'rgba(255,255,255,0.1)' }}></div>
+            <div style={{ width: '1px', height: '28px', background: 'rgba(255,255,255,0.1)' }}></div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Clock size={18} color="#fbbf24" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Clock size={22} color="#fbbf24" />
               <div>
-                <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase' }}>ETA</div>
-                <div style={{ fontSize: '1rem', fontWeight: 800, color: '#ffffff' }}>{remainingTimeMins} min</div>
+                <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600 }}>ETA</div>
+                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#ffffff' }}>{remainingTimeMins} <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>min</span></div>
               </div>
             </div>
           </div>
 
-          {/* Navigation Controls */}
+          {/* Navigation Cockpit Controls */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button
               onClick={() => setCameraFollow(prev => !prev)}
               style={{
-                background: cameraFollow ? 'rgba(56,189,248,0.2)' : 'rgba(255,255,255,0.05)',
-                border: cameraFollow ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.1)',
-                color: cameraFollow ? '#38bdf8' : '#94a3b8',
+                background: cameraFollow ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.05)',
+                border: cameraFollow ? '1px solid #10b981' : '1px solid rgba(255,255,255,0.1)',
+                color: cameraFollow ? '#34d399' : '#94a3b8',
                 borderRadius: '8px',
-                padding: '6px 10px',
-                fontSize: '0.72rem',
-                fontWeight: 600,
-                cursor: 'pointer'
+                padding: '6px 12px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
               }}
             >
-              🎥 Lock Camera
+              <LocateFixed size={14} /> Follow Car
             </button>
 
-            {/* Speed Multipliers */}
-            <div style={{ display: 'flex', background: 'rgba(0,0,0,0.5)', borderRadius: '6px', padding: '2px' }}>
-              {[1, 2, 4].map(s => (
+            {/* Speed multipliers */}
+            <div style={{ display: 'flex', background: 'rgba(0,0,0,0.5)', borderRadius: '8px', padding: '2px' }}>
+              {[1, 2, 5].map(s => (
                 <button
                   key={s}
                   onClick={() => setSimulationSpeed(s)}
                   style={{
-                    background: simulationSpeed === s ? '#4f46e5' : 'transparent',
+                    background: simulationSpeed === s ? '#10b981' : 'transparent',
                     color: simulationSpeed === s ? '#ffffff' : '#94a3b8',
                     border: 'none',
-                    borderRadius: '4px',
-                    padding: '3px 8px',
-                    fontSize: '0.7rem',
+                    borderRadius: '6px',
+                    padding: '4px 8px',
+                    fontSize: '0.72rem',
                     fontWeight: 700,
                     cursor: 'pointer'
                   }}
@@ -794,14 +944,14 @@ export default function InteractiveMap({
             </div>
 
             <button
-              onClick={pauseResumeTravel}
+              onClick={handlePauseResume}
               style={{
                 background: isNavigating ? 'rgba(245,158,11,0.2)' : 'rgba(16,185,129,0.2)',
                 border: isNavigating ? '1px solid #f59e0b' : '1px solid #10b981',
                 color: isNavigating ? '#fbbf24' : '#34d399',
                 borderRadius: '8px',
-                padding: '6px 12px',
-                fontSize: '0.75rem',
+                padding: '6px 14px',
+                fontSize: '0.78rem',
                 fontWeight: 700,
                 cursor: 'pointer',
                 display: 'flex',
@@ -813,8 +963,28 @@ export default function InteractiveMap({
             </button>
 
             <button
-              onClick={resetTravel}
-              title="Restart Route"
+              onClick={handleJumpToEnd}
+              title="Fast forward to arrival"
+              style={{
+                background: 'rgba(56,189,248,0.15)',
+                border: '1px solid rgba(56,189,248,0.4)',
+                color: '#38bdf8',
+                borderRadius: '8px',
+                padding: '6px 10px',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              <FastForward size={14} /> Arrive
+            </button>
+
+            <button
+              onClick={handleReset}
+              title="Restart route"
               style={{
                 background: 'rgba(255,255,255,0.06)',
                 border: '1px solid rgba(255,255,255,0.12)',
@@ -832,81 +1002,81 @@ export default function InteractiveMap({
       )}
 
       {/* ARRIVAL CELEBRATION MODAL BANNER */}
-      {hasArrived && activeEntity && (
+      {hasArrived && targetEntity && (
         <div style={{
           position: 'absolute',
           inset: 0,
-          background: 'rgba(0,0,0,0.7)',
-          backdropFilter: 'blur(8px)',
-          zIndex: 2000,
+          background: 'rgba(4, 7, 14, 0.82)',
+          backdropFilter: 'blur(10px)',
+          zIndex: 2500,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           padding: '20px'
         }}>
           <div style={{
-            background: 'linear-gradient(135deg, #0d111d 0%, #171d33 100%)',
+            background: 'linear-gradient(135deg, #0b1120 0%, #111e38 100%)',
             border: '2px solid #34d399',
-            boxShadow: '0 0 40px rgba(52,211,153,0.4)',
-            borderRadius: '16px',
-            padding: '24px 32px',
+            boxShadow: '0 0 50px rgba(52,211,153,0.45)',
+            borderRadius: '20px',
+            padding: '28px 36px',
             textAlign: 'center',
-            maxWidth: '460px',
+            maxWidth: '480px',
             color: '#ffffff'
           }}>
-            <div style={{ fontSize: '38px', marginBottom: '8px' }}>🎉</div>
-            <h3 style={{ fontSize: '1.35rem', fontWeight: 800, marginBottom: '6px' }}>
+            <div style={{ fontSize: '42px', marginBottom: '8px' }}>🏁 🎉</div>
+            <h3 style={{ fontSize: '1.45rem', fontWeight: 800, marginBottom: '6px' }}>
               You Have Arrived!
             </h3>
-            <p style={{ fontSize: '1.05rem', color: '#34d399', fontWeight: 700, marginBottom: '4px' }}>
-              {activeEntity.canonical_name}
+            <p style={{ fontSize: '1.15rem', color: '#34d399', fontWeight: 800, marginBottom: '4px' }}>
+              {targetEntity.canonical_name}
             </p>
-            <p style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '16px', lineHeight: 1.4 }}>
-              📍 {activeEntity.golden_address}
+            <p style={{ fontSize: '0.84rem', color: '#94a3b8', marginBottom: '18px', lineHeight: 1.4 }}>
+              📍 {targetEntity.golden_address}
             </p>
 
             <div style={{
               background: 'rgba(255,255,255,0.04)',
               border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: '10px',
-              padding: '10px',
-              fontSize: '0.78rem',
+              borderRadius: '12px',
+              padding: '12px',
+              fontSize: '0.8rem',
               color: '#cbd5e1',
-              marginBottom: '20px',
+              marginBottom: '22px',
               display: 'flex',
               justifyContent: 'space-around'
             }}>
               <div>
-                <span style={{ color: '#94a3b8', display: 'block', fontSize: '0.68rem' }}>DOOR / BLDG</span>
-                <strong>{activeEntity.building_number || 'N/A'}</strong>
+                <span style={{ color: '#94a3b8', display: 'block', fontSize: '0.7rem', fontWeight: 600 }}>DOOR / UNIT</span>
+                <strong>{targetEntity.building_number || 'N/A'}</strong>
               </div>
               <div style={{ borderLeft: '1px solid rgba(255,255,255,0.1)' }}></div>
               <div>
-                <span style={{ color: '#94a3b8', display: 'block', fontSize: '0.68rem' }}>LANDMARK</span>
-                <strong>{activeEntity.landmark || 'Commercial Hub'}</strong>
+                <span style={{ color: '#94a3b8', display: 'block', fontSize: '0.7rem', fontWeight: 600 }}>LANDMARK</span>
+                <strong>{targetEntity.landmark || 'Main Road'}</strong>
               </div>
               <div style={{ borderLeft: '1px solid rgba(255,255,255,0.1)' }}></div>
               <div>
-                <span style={{ color: '#94a3b8', display: 'block', fontSize: '0.68rem' }}>CONFIDENCE</span>
-                <strong style={{ color: '#34d399' }}>{activeEntity.confidence_pct}%</strong>
+                <span style={{ color: '#94a3b8', display: 'block', fontSize: '0.7rem', fontWeight: 600 }}>CONSENSUS</span>
+                <strong style={{ color: '#34d399' }}>{targetEntity.confidence_pct || 96}%</strong>
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
               <button
                 onClick={() => {
                   setHasArrived(false);
-                  if (onOpenDetails) onOpenDetails(activeEntity.canonical_id);
+                  if (onOpenDetails) onOpenDetails(targetEntity.canonical_id);
                 }}
                 className="btn-primary"
-                style={{ padding: '8px 16px', fontSize: '0.82rem', borderRadius: '10px' }}
+                style={{ padding: '9px 18px', fontSize: '0.85rem', borderRadius: '10px' }}
               >
-                Inspect Multi-Source Matches
+                Inspect Entity Graph & Sources
               </button>
               <button
                 onClick={() => setHasArrived(false)}
                 className="btn-secondary"
-                style={{ padding: '8px 16px', fontSize: '0.82rem', borderRadius: '10px' }}
+                style={{ padding: '9px 18px', fontSize: '0.85rem', borderRadius: '10px' }}
               >
                 Close View
               </button>
@@ -915,41 +1085,41 @@ export default function InteractiveMap({
         </div>
       )}
 
-      {/* Leaflet Map DOM Target */}
+      {/* Leaflet Map Target DOM */}
       <div 
         ref={mapContainerRef} 
-        style={{ width: '100%', height: '100%', zIndex: 1 }} 
+        style={{ width: '100%', height: '100%', minHeight: '520px', flex: 1, zIndex: 1 }} 
       />
 
-      {/* Default Map Legend at Bottom Left (When not in GPS mode) */}
+      {/* Non-GPS Map Category Legend */}
       {!isGpsActive && (
         <div style={{
           position: 'absolute',
-          bottom: '12px',
-          left: '12px',
-          background: 'rgba(15, 23, 42, 0.88)',
-          backdropFilter: 'blur(8px)',
+          bottom: '14px',
+          left: '14px',
+          background: 'rgba(11, 15, 25, 0.88)',
+          backdropFilter: 'blur(10px)',
           border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: '8px',
-          padding: '6px 12px',
+          borderRadius: '10px',
+          padding: '8px 14px',
           zIndex: 1000,
           display: 'flex',
           alignItems: 'center',
-          gap: '12px',
-          fontSize: '0.72rem',
+          gap: '14px',
+          fontSize: '0.75rem',
           color: '#94a3b8'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             <span style={{ color: '#f59e0b' }}>🛍️</span> Retail & Shops
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ color: '#10b981' }}>☕</span> Food & Dining
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span style={{ color: '#10b981' }}>☕</span> Food & Cafes
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ color: '#06b6d4' }}>💻</span> Tech & Labs
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span style={{ color: '#06b6d4' }}>💻</span> Tech & Corporate
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ color: '#a855f7' }}>🏢</span> Estates & Buildings
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span style={{ color: '#a855f7' }}>🏢</span> Complexes
           </div>
         </div>
       )}
