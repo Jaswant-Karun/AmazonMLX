@@ -55,7 +55,7 @@ export default function EntityDetailModal({ entity, onClose, onOpenGraph }) {
             <ShieldCheck size={14} /> Golden Record Synthesized
           </div>
           <span className="badge-gold">
-            <Award size={13} /> {entity.confidence_score ? `${entity.confidence_score * 100:.1f}% Consensus` : '98.4% Confidence'}
+            <Award size={13} /> {entity.confidence_score ? `${(entity.confidence_score * 100).toFixed(1)}% Consensus` : '98.4% Confidence'}
           </span>
           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
             Cluster ID: <code>{entity.canonical_id}</code>
@@ -132,7 +132,7 @@ export default function EntityDetailModal({ entity, onClose, onOpenGraph }) {
                   </td>
                   <td style={{ padding: '12px 14px' }}>
                     <span style={{ color: '#34d399', fontWeight: 700 }}>
-                      {s.confidence ? `${s.confidence * 100:.1f}%` : '98.5%'}
+                      {s.confidence ? `${(s.confidence * 100).toFixed(1)}%` : '98.5%'}
                     </span>
                   </td>
                   <td style={{ padding: '12px 14px', color: '#e2e8f0', fontSize: '0.78rem' }}>

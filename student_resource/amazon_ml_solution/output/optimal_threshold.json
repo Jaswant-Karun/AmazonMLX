@@ -13,7 +13,7 @@
     "name_char_len_ratio",
     "name_char_sim",
     "name_levenshtein_sim",
-    "name_token_overlap",
+    "name_token_overlap",66
     "name_token_jaccard",
     "name_token_containment",
     "name_first_token_sim",
